@@ -1,0 +1,14 @@
+services:
+  beermuggame:
+    build: .
+    container_name: beermuggame
+    ports:
+      - "3003:3003"
+    environment:
+      - NODE_ENV=production
+      - PORT=3003
+      - MAX_PLAYERS=10
+      - TICK_RATE=20
+      - RESPAWN_TIME=10000
+      - MAX_HP=500
+    restart: unless-stopped

@@ -1,0 +1,32 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>BeerMugGame</title>
+    <style>
+      body { margin:0; background:#1b1b2f; color:#fff; font-family: Arial, sans-serif }
+      #game-container { width: 800px; height: 600px; margin:20px auto; border: 2px solid #333; background: #091021; position: relative; }
+      #ui { text-align:center; margin-top:6px }
+      #join { margin: 16px; text-align:center }
+      #leaderboard { position: absolute; right: -240px; top: 20px; width:220px; color:#fff; }
+      #overlay { position:absolute; left:10px; top:10px; z-index:999; }
+    </style>
+  </head>
+  <body>
+    <div id="game-root">
+      <div id="join">
+        <input id="name" placeholder="Введите имя" />
+        <button id="joinBtn">Войти</button>
+      </div>
+      <div id="game-container"></div>
+      <div id="leaderboard"></div>
+    </div>
+
+    <!-- Phaser 3 CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+    <!-- Socket.IO client -->
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="game.js?v=6"></script>
+  </body>
+</html>
