@@ -63,7 +63,8 @@ const io = new Server(server, {
   } 
 });
 
-app.use(express.static(__dirname + '/../client'));
+const path = require('path');
+app.use(express.static(path.join(__dirname, '..', 'client')));
 
 let players = {};
 let projectiles = [];
@@ -277,7 +278,7 @@ function handleHit(attackerId, targetId, data) {
   const MAX_HIT_RANGE = 120;
   if (dist > MAX_HIT_RANGE) return;
 
-  const DAMAGE = p.activePowerUp === 'damage' ? 68 : 34;
+  const DAMAGE = attacker.activePowerUp === 'damage' ? 68 : 34;
   target.hp -= DAMAGE;
   attacker.score += 10;
   attacker.damageDealt += DAMAGE;
@@ -451,13 +452,19 @@ setInterval(() => {
         const dist = Math.hypot(dx, dy);
         
         if (dist < 30) { // Player hit radius
-          // Beer projectile damage - 10% of max HP
-          const BEER_DAMAGE = attacker && attacker.activePowerUp === 'damage' ? Math.floor(MAX_HP * 0.2) : Math.floor(MAX_HP * 0.1);
-          player.hp -= BEER_DAMAGE;
+          // Сначала получаем атакующего
           const attacker = players[proj.playerId];
+          
+          // Затем вычисляем урон на основе его бонусов
+          const BEER_DAMAGE = attacker && attacker.activePowerUp === 'damage' 
+            ? Math.floor(MAX_HP * 0.2) 
+            : Math.floor(MAX_HP * 0.1);
+          
+          player.hp -= BEER_DAMAGE;
+          
           if (attacker) {
-              attacker.score += 5;
-              attacker.damageDealt += BEER_DAMAGE;
+            attacker.score += 5;
+            attacker.damageDealt += BEER_DAMAGE;
           }
           
           io.emit('beerHit', { 
@@ -471,10 +478,9 @@ setInterval(() => {
             player.hp = 0;
             player.alive = false;
             player.respawnAt = now + RESPAWN_TIME;
-            const attacker = players[proj.playerId];
             if (attacker) {
-                attacker.kills += 1;
-                attacker.score += 50; // Bonus for kill
+              attacker.kills += 1;
+              attacker.score += 50; // Bonus for kill
             }
             io.emit('playerDied', { id: player.id, by: proj.playerId });
           }
@@ -487,6 +493,7 @@ setInterval(() => {
     }
   }
 
+  // Broadcast game state
   if (now - lastStateBroadcast >= 1000 / STATE_BROADCAST_RATE) {
     const snapshot = Object.values(players).map(scrubPlayer);
     const leaderboard = Object.values(players)

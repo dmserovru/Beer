@@ -56,10 +56,10 @@ const config = {
 
 function preload() {
   console.log("Loading textures...");
-  scene.load.audio('shoot', 'assets/shoot.mp3');
-  scene.load.audio('hit', 'assets/hit.mp3');
-  scene.load.audio('death', 'assets/death.mp3');
-  scene.load.audio('shatter', 'assets/shatter.mp3');
+  this.load.audio('shoot', 'assets/shoot.mp3');
+  this.load.audio('hit', 'assets/hit.mp3');
+  this.load.audio('death', 'assets/death.mp3');
+  this.load.audio('shatter', 'assets/shatter.mp3');
 }
 
 function create() {
@@ -532,9 +532,13 @@ function addOrUpdateRemotePlayer(p, scene) {
   if (!players[p.id]) {
     console.log("Creating new player:", p.name, "at", p.x, p.y);
     const sprite = scene.physics.add.sprite(p.x, p.y, 'beer');
-    // No need to set camera for other players
+    
+    // ВАЖНО: Следим камерой только за СВОИМ игроком
+    if (p.id === selfId) {
+      scene.cameras.main.startFollow(sprite);
+    }
+    
     sprite.setCollideWorldBounds(true);
-    scene.cameras.main.startFollow(sprite);
     sprite.setBounce(0.3);
     sprite.setDrag(100);
     sprite.body.setCircle(22); // Устанавливаем круглую форму коллизии
@@ -550,7 +554,14 @@ function addOrUpdateRemotePlayer(p, scene) {
     const hpBarBg = scene.add.rectangle(p.x - 25, p.y - 30, 50, 6, 0x333333).setDepth(2);
     const hpBar = scene.add.rectangle(p.x - 25, p.y - 30, 50, 6, 0x00ff00).setDepth(3);
     
-    players[p.id] = { sprite, nameText, hpBar, hpBarBg, data: p, lastDirection: p.lastDirection || { x: 0, y: 0 } };
+    players[p.id] = { 
+      sprite, 
+      nameText, 
+      hpBar, 
+      hpBarBg, 
+      data: p, 
+      lastDirection: p.lastDirection || { x: 0, y: 0 } 
+    };
     console.log("Player created successfully:", p.name);
     
     // Add collision between players
