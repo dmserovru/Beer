@@ -14,7 +14,7 @@ let lastInputTime = 0;
 const INPUT_SEND_RATE = 30;
 let pendingInputs = [];
 let walls = [];
-let wallSprites = []; // Массив для хранения спрайтов стен
+let wallSprites = [];
 let bushes = [];
 let bushSprites = [];
 let trees = [];
@@ -29,6 +29,10 @@ let joystickOrigin = { x: 0, y: 0 };
 let joystickActive = false;
 let mobileInput = { left: false, right: false, up: false, down: false };
 let isMobileDevice = false;
+
+// Оптимизация интерполяции
+const LERP_FACTOR = 0.2;
+const POSITION_THRESHOLD = 50; // Максимальное расхождение позиций
 
 const config = {
   type: Phaser.AUTO,
@@ -75,25 +79,22 @@ function create() {
   createBottleTexture(scene);
   
   // Определяем тип устройства
-  isMobileDevice = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+  isMobileDevice = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || 
+                   window.innerWidth < 768;
   
   if (isMobileDevice) {
-    // Показываем мобильные элементы управления
+    console.log("Mobile device detected");
     document.getElementById('mobile-controls').style.display = 'flex';
-    setupMobileControls();
+    setupMobileControls(scene);
   } else {
-    // Используем клавиатуру для десктопов
+    console.log("Desktop device detected");
     cursors = scene.input.keyboard.createCursorKeys();
     swingKey = scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
     shootKey = scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
-    console.log("Keys configured:", { swingKey, shootKey });
   }
 
   const joinBtn = document.getElementById('joinBtn');
   const nameInput = document.getElementById('name');
-  
-  console.log("Join button:", joinBtn);
-  console.log("Name input:", nameInput);
   
   if (joinBtn) {
     joinBtn.addEventListener('click', () => {
@@ -101,9 +102,6 @@ function create() {
       console.log("Join button clicked! Name:", name);
       socket.emit('join', { name });
     });
-    console.log("Join button event listener added");
-  } else {
-    console.error("Join button not found!");
   }
 
   socket.on('connect', () => {
@@ -119,11 +117,9 @@ function create() {
     selfId = data.id;
     document.getElementById('join').style.display = 'none';
     
-    // Create walls, bushes, trees and set world bounds
     if (data.worldSize) {
         scene.physics.world.setBounds(0, 0, data.worldSize.width, data.worldSize.height);
         
-        // Create a background grid
         const gridGraphics = scene.add.graphics();
         gridGraphics.fillStyle(0x222222, 1);
         gridGraphics.fillRect(0, 0, data.worldSize.width, data.worldSize.height);
@@ -139,9 +135,11 @@ function create() {
         gridGraphics.strokePath();
         gridGraphics.setDepth(-1);
     }
+    
     createWalls(scene, data.walls);
     createBushes(scene, data.bushes || []);
     createTrees(scene, data.trees || []);
+    
     if (data.powerUps) {
         data.powerUps.forEach(p => createPowerUp(scene, p));
     }
@@ -151,15 +149,7 @@ function create() {
 
     if (data.self) {
       console.log("Creating self player:", data.self);
-      addOrUpdateRemotePlayer(data.self, scene);
-      
-      // Add collision between player and walls
-      const me = players[selfId];
-      if (me) {
-        wallSprites.forEach(wall => {
-          scene.physics.add.collider(me.sprite, wall);
-        });
-      }
+      addOrUpdatePlayer(data.self, scene, true);
     }
   });
 
@@ -168,30 +158,19 @@ function create() {
     alert(err.message || 'Join error');
   });
   
-  socket.on('connect_error', (error) => {
-    console.error("Connection error:", error);
-  });
-
   socket.on('playerJoined', ({ player }) => {
-    addOrUpdateRemotePlayer(player, scene);
-    
-    // Add collision for new player with walls
-    const newPlayer = players[player.id];
-    if (newPlayer) {
-      wallSprites.forEach(wall => {
-        scene.physics.add.collider(newPlayer.sprite, wall);
-      });
-    }
+    console.log("Player joined:", player.name);
+    addOrUpdatePlayer(player, scene, false);
   });
 
   socket.on('playerLeft', ({ id }) => {
+    console.log("Player left:", id);
     removePlayer(id);
   });
 
   socket.on('playerDied', ({ id, by }) => {
     const p = players[id];
     if (p) {
-      // Death animation - only change alpha and rotation, not scale
       scene.sound.play('death');
       scene.tweens.add({
         targets: p.sprite,
@@ -218,7 +197,6 @@ function create() {
   });
 
   socket.on('beerHit', ({ attackerId, targetId, x, y }) => {
-    // Create beer splash effect
     scene.sound.play('hit');
     const splash = scene.add.circle(x, y, 20, 0xFFD700, 0.8);
     scene.tweens.add({
@@ -231,7 +209,6 @@ function create() {
       onComplete: () => splash.destroy()
     });
     
-    // Shake effect for hit player
     const target = players[targetId];
     if (target) {
       scene.tweens.add({
@@ -246,8 +223,7 @@ function create() {
   });
 
   socket.on('powerUpSpawned', (powerUp) => {
-    const scene = game.scene.scenes[0];
-    if (scene) createPowerUp(scene, powerUp);
+    createPowerUp(scene, powerUp);
   });
 
   socket.on('powerUpCollected', ({ powerUpId, playerId }) => {
@@ -255,67 +231,21 @@ function create() {
         powerUpSprites[powerUpId].destroy();
         delete powerUpSprites[powerUpId];
     }
-    const player = players[playerId];
-    if (player) {
-        // You can add a visual effect to the player here
-    }
-  });
-
-  socket.on('projectileShattered', ({ id, x, y, type }) => {
-    if (projectiles[id]) {
-        projectiles[id].destroy();
-        delete projectiles[id];
-    }
-
-    const scene = game.scene.scenes[0];
-    if (scene) {
-        // Create shatter effect
-        scene.sound.play('shatter');
-        const particles = scene.add.particles('glassParticle');
-        const emitter = particles.createEmitter({
-            x, y,
-            speed: { min: -200, max: 200 },
-            angle: { min: 0, max: 360 },
-            scale: { start: 1, end: 0 },
-            blendMode: 'ADD',
-            lifespan: 500,
-            gravityY: 300
-        });
-        emitter.explode(20);
-        scene.time.delayedCall(1000, () => particles.destroy());
-    }
-  });
-
-  socket.on('hillMoved', (hillZone) => {
-    const scene = game.scene.scenes[0];
-    if (scene) createOrUpdateHillZone(scene, hillZone);
   });
 
   socket.on('projectileCreated', (projectile) => {
-    const scene = game.scene.scenes[0];
-    if (!scene) return;
-    
-    // Client-side prediction reconciliation
     if (projectile.playerId === selfId && projectile.localId && projectiles[projectile.localId]) {
         const localProj = projectiles[projectile.localId];
         delete projectiles[projectile.localId];
-
         localProj.id = projectile.id;
         projectiles[projectile.id] = localProj;
-        
-        // No need to create a new sprite, just re-key the existing one.
         return;
     }
     
-    // Create sprite for projectiles from other players (or if prediction failed)
     const projSprite = createBeerProjectile(scene, projectile);
-    if (!projSprite) return; // Could be a bottle handled differently
-    
-    // Add collision between projectile and walls
     if (projSprite) {
       wallSprites.forEach(wall => {
         scene.physics.add.collider(projSprite, wall, (projectileSprite, wallSprite) => {
-          // On collision, destroy the projectile
           const idToDestroy = projectileSprite.id;
           if (projectiles[idToDestroy]) {
             projectiles[idToDestroy].destroy();
@@ -335,7 +265,7 @@ function create() {
 
   socket.on('state', ({ players: statePlayers, leaderboard, hill }) => {
     statePlayers.forEach(p => {
-      addOrUpdateRemotePlayer(p, scene);
+      addOrUpdatePlayer(p, scene, p.id === selfId);
     });
     
     const ids = statePlayers.map(p => p.id);
@@ -348,15 +278,16 @@ function create() {
   });
 }
 
-function setupMobileControls() {
-  // Настройка джойстика
+function setupMobileControls(scene) {
   const joystickElement = document.getElementById('joystick');
   const joystickArea = document.getElementById('joystick-area');
   
-  // Обработка касаний для джойстика
-  joystickElement.addEventListener('touchstart', (e) => {
+  joystickArea.addEventListener('touchstart', (e) => {
     e.preventDefault();
     joystickActive = true;
+    const rect = joystickArea.getBoundingClientRect();
+    joystickOrigin.x = rect.left + rect.width / 2;
+    joystickOrigin.y = rect.top + rect.height / 2;
     updateJoystickPosition(e.touches[0]);
   });
   
@@ -381,7 +312,6 @@ function setupMobileControls() {
     }
   });
   
-  // Обработка кнопок действия
   const shootBtn = document.getElementById('shoot-btn');
   const swingBtn = document.getElementById('swing-btn');
   
@@ -400,25 +330,23 @@ function updateJoystickPosition(touch) {
   const joystickElement = document.getElementById('joystick');
   const joystickArea = document.getElementById('joystick-area');
   
-  const joystickRect = joystickArea.getBoundingClientRect();
-  const centerX = joystickRect.left + joystickRect.width / 2;
-  const centerY = joystickRect.top + joystickRect.height / 2;
+  const rect = joystickArea.getBoundingClientRect();
+  const centerX = rect.left + rect.width / 2;
+  const centerY = rect.top + rect.height / 2;
   
   let deltaX = touch.clientX - centerX;
   let deltaY = touch.clientY - centerY;
   
-  // Ограничиваем движение джойстика круглой областью
-  const distance = Math.min(Math.sqrt(deltaX * deltaX + deltaY * deltaY), joystickRect.width / 2);
+  const maxDistance = rect.width / 3;
+  const distance = Math.min(Math.sqrt(deltaX * deltaX + deltaY * deltaY), maxDistance);
   const angle = Math.atan2(deltaY, deltaX);
   
   deltaX = Math.cos(angle) * distance;
   deltaY = Math.sin(angle) * distance;
   
-  // Обновляем позицию джойстика
   joystickElement.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
   
-  // Обновляем входные данные для движения
-  const threshold = 10; // Порог для регистрации движения
+  const threshold = maxDistance * 0.3;
   mobileInput = {
     left: deltaX < -threshold,
     right: deltaX > threshold,
@@ -439,10 +367,8 @@ function mobileShoot() {
   const canShoot = time - lastShootTime > SHOOT_COOLDOWN;
   
   if (canShoot) {
-    console.log("MOBILE SHOOTING!");
     const me = players[selfId];
-    if (me) {
-      // Используем последнее направление движения для стрельбы
+    if (me && me.sprite) {
       let shootVx = 0, shootVy = 0;
       
       if (mobileInput.left) shootVx -= 1;
@@ -450,18 +376,15 @@ function mobileShoot() {
       if (mobileInput.up) shootVy -= 1;
       if (mobileInput.down) shootVy += 1;
       
-      // Если не двигаемся, используем последнее направление
       if (shootVx === 0 && shootVy === 0) {
         shootVx = me.lastDirection.x;
         shootVy = me.lastDirection.y;
       }
       
-      // Если все еще нет направления, стреляем вправо
       if (shootVx === 0 && shootVy === 0) {
         shootVx = 1;
       }
       
-      // Нормализуем и устанавливаем скорость
       const len = Math.hypot(shootVx, shootVy);
       if (len > 0) {
         shootVx = (shootVx / len) * 300;
@@ -479,7 +402,6 @@ function mobileShoot() {
           vy: shootVy
       };
 
-      // Create projectile locally for prediction
       if (game) {
         createBeerProjectile(game.scene.scenes[0], projectileData);
         game.scene.scenes[0].sound.play('shoot');
@@ -495,7 +417,7 @@ function mobileShoot() {
 
 function mobileSwing() {
   const me = players[selfId];
-  if (!me) return;
+  if (!me || !me.sprite) return;
   
   const range = 100;
   let targetId = null;
@@ -504,12 +426,14 @@ function mobileSwing() {
   Object.keys(players).forEach(id => {
     if (id === selfId) return;
     const p = players[id];
-    const dx = p.sprite.x - me.sprite.x;
-    const dy = p.sprite.y - me.sprite.y;
-    const d = Math.hypot(dx, dy);
-    if (d < range && d < best) { 
-      best = d; 
-      targetId = id; 
+    if (p && p.sprite) {
+      const dx = p.sprite.x - me.sprite.x;
+      const dy = p.sprite.y - me.sprite.y;
+      const d = Math.hypot(dx, dy);
+      if (d < range && d < best) { 
+        best = d; 
+        targetId = id; 
+      }
     }
   });
   
@@ -528,20 +452,20 @@ function mobileSwing() {
   }
 }
 
-function addOrUpdateRemotePlayer(p, scene) {
+function addOrUpdatePlayer(p, scene, isSelf) {
   if (!players[p.id]) {
     console.log("Creating new player:", p.name, "at", p.x, p.y);
+    
     const sprite = scene.physics.add.sprite(p.x, p.y, 'beer');
-    
-    // ВАЖНО: Следим камерой только за СВОИМ игроком
-    if (p.id === selfId) {
-      scene.cameras.main.startFollow(sprite);
-    }
-    
     sprite.setCollideWorldBounds(true);
     sprite.setBounce(0.3);
     sprite.setDrag(100);
-    sprite.body.setCircle(22); // Устанавливаем круглую форму коллизии
+    sprite.body.setCircle(22);
+    
+    if (isSelf) {
+      scene.cameras.main.startFollow(sprite);
+      scene.cameras.main.setZoom(1.5);
+    }
     
     const nameText = scene.add.text(p.x - 24, p.y - 44, p.name, { 
       fontSize: '12px',
@@ -560,26 +484,44 @@ function addOrUpdateRemotePlayer(p, scene) {
       hpBar, 
       hpBarBg, 
       data: p, 
-      lastDirection: p.lastDirection || { x: 0, y: 0 } 
+      lastDirection: p.lastDirection || { x: 0, y: 0 },
+      lastServerX: p.x,
+      lastServerY: p.y,
+      lastUpdateTime: Date.now()
     };
-    console.log("Player created successfully:", p.name);
     
-    // Add collision between players
+    // Добавляем коллизии с другими игроками
     Object.keys(players).forEach(id => {
-      if (id !== p.id && players[id]) {
-        scene.physics.add.collider(sprite, players[id].sprite, (sprite1, sprite2) => {
-          handlePlayerCollision(sprite1, sprite2);
-        });
+      if (id !== p.id && players[id] && players[id].sprite) {
+        scene.physics.add.collider(sprite, players[id].sprite, handlePlayerCollision);
       }
     });
     
-    // Add collision with walls for new player
+    // Добавляем коллизии со стенами
     wallSprites.forEach(wall => {
       scene.physics.add.collider(sprite, wall);
     });
+    
   } else {
-    players[p.id].data = p;
-    players[p.id].lastDirection = p.lastDirection || players[p.id].lastDirection;
+    const player = players[p.id];
+    player.data = p;
+    player.lastDirection = p.lastDirection || player.lastDirection;
+    player.lastServerX = p.x;
+    player.lastServerY = p.y;
+    player.lastUpdateTime = Date.now();
+    
+    // Для своего игрока корректируем позицию если расхождение слишком большое
+    if (isSelf) {
+      const dx = player.sprite.x - p.x;
+      const dy = player.sprite.y - p.y;
+      const distance = Math.hypot(dx, dy);
+      
+      if (distance > POSITION_THRESHOLD) {
+        player.sprite.x = p.x;
+        player.sprite.y = p.y;
+        console.log("Position corrected for self player");
+      }
+    }
   }
 }
 
@@ -608,10 +550,13 @@ function handlePlayerCollision(sprite1, sprite2) {
 function removePlayer(id) {
   const p = players[id];
   if (!p) return;
-  p.sprite.destroy();
-  p.nameText.destroy();
-  p.hpBar.destroy();
-  p.hpBarBg.destroy();
+  
+  if (p.sprite) p.sprite.destroy();
+  if (p.nameText) p.nameText.destroy();
+  if (p.hpBar) p.hpBar.destroy();
+  if (p.hpBarBg) p.hpBarBg.destroy();
+  if (p.powerUpAura) p.powerUpAura.destroy();
+  
   delete players[id];
 }
 
@@ -947,7 +892,6 @@ function update(time, delta) {
   let input;
   
   if (isMobileDevice) {
-    // Используем мобильный ввод
     input = { 
       seq: ++seq,
       left: mobileInput.left,
@@ -957,7 +901,6 @@ function update(time, delta) {
       action: null
     };
   } else {
-    // Используем клавиатурный ввод
     input = { 
       seq: ++seq,
       left: cursors.left.isDown,
@@ -967,31 +910,26 @@ function update(time, delta) {
       action: swingKey.isDown ? 'swing' : null
     };
     
-    // Shooting with space key - beer shooting
+    // Стрельба для десктопа
     const canShoot = time - lastShootTime > SHOOT_COOLDOWN;
     if (shootKey.isDown && canShoot) {
-      console.log("SHOOTING! Space key pressed");
       const me = players[selfId];
-      if (me) {
-        // Get movement direction for shooting
+      if (me && me.sprite) {
         let shootVx = 0, shootVy = 0;
         if (input.left) shootVx -= 1;
         if (input.right) shootVx += 1;
         if (input.up) shootVy -= 1;
         if (input.down) shootVy += 1;
         
-        // If not moving, use last direction
         if (shootVx === 0 && shootVy === 0) {
           shootVx = me.lastDirection.x;
           shootVy = me.lastDirection.y;
         }
         
-        // If still no direction, shoot right
         if (shootVx === 0 && shootVy === 0) {
           shootVx = 1;
         }
         
-        // Normalize and set speed
         const len = Math.hypot(shootVx, shootVy);
         if (len > 0) {
           shootVx = (shootVx / len) * 300;
@@ -1009,7 +947,6 @@ function update(time, delta) {
             vy: shootVy
         };
 
-        // Create projectile locally for prediction
         createBeerProjectile(scene, projectileData);
         scene.sound.play('shoot');
 
@@ -1023,8 +960,11 @@ function update(time, delta) {
 
   const speed = 200;
   let vx = 0, vy = 0;
-  if (input.left) vx -= 1; if (input.right) vx += 1;
-  if (input.up) vy -= 1; if (input.down) vy += 1;
+  if (input.left) vx -= 1; 
+  if (input.right) vx += 1;
+  if (input.up) vy -= 1; 
+  if (input.down) vy += 1;
+  
   const len = Math.hypot(vx, vy);
   if (len > 0) { 
     vx = vx / len * speed; 
@@ -1035,15 +975,15 @@ function update(time, delta) {
   }
 
   const me = players[selfId];
-  if (me) {
+  if (me && me.sprite) {
     if (vx !== 0 || vy !== 0) {
       me.lastDirection.x = vx / speed;
       me.lastDirection.y = vy / speed;
     }
     
-    // Используем физику Phaser для движения вместо ручного обновления позиции
     me.sprite.setVelocity(vx, vy);
     
+    // Обновляем UI элементы
     me.nameText.x = me.sprite.x - 24;
     me.nameText.y = me.sprite.y - 44;
     me.hpBarBg.x = me.sprite.x - 25;
@@ -1051,6 +991,7 @@ function update(time, delta) {
     me.hpBar.x = me.sprite.x - 25;
     me.hpBar.y = me.sprite.y - 30;
     
+    // Наклон кружки в сторону движения
     if (vx !== 0 || vy !== 0) {
       const angle = Math.atan2(vy, vx) * (180 / Math.PI);
       scene.tweens.add({
@@ -1062,47 +1003,73 @@ function update(time, delta) {
     }
   }
 
+  // Отправляем ввод на сервер
   if (time - lastInputTime >= 1000 / INPUT_SEND_RATE) {
     if (input.action) {
       const range = 100;
-      let targetId = null; let best = 1e9;
-      if (me) {
+      let targetId = null; 
+      let best = 1e9;
+      
+      if (me && me.sprite) {
         Object.keys(players).forEach(id => {
           if (id === selfId) return;
           const p = players[id];
-          const dx = p.sprite.x - me.sprite.x;
-          const dy = p.sprite.y - me.sprite.y;
-          const d = Math.hypot(dx, dy);
-          if (d < range && d < best) { best = d; targetId = id; }
+          if (p && p.sprite) {
+            const dx = p.sprite.x - me.sprite.x;
+            const dy = p.sprite.y - me.sprite.y;
+            const d = Math.hypot(dx, dy);
+            if (d < range && d < best) { 
+              best = d; 
+              targetId = id; 
+            }
+          }
         });
       }
+      
       if (targetId) {
-        socket.emit('input', { seq, left: input.left, right: input.right, up: input.up, down: input.down, action: 'swing', targetId, ax: me ? me.sprite.x : 0, ay: me ? me.sprite.y : 0 });
+        socket.emit('input', { 
+          seq, 
+          left: input.left, 
+          right: input.right, 
+          up: input.up, 
+          down: input.down, 
+          action: 'swing', 
+          targetId, 
+          ax: me ? me.sprite.x : 0, 
+          ay: me ? me.sprite.y : 0 
+        });
       } else {
-        socket.emit('input', { seq, left: input.left, right: input.right, up: input.up, down: input.down });
+        socket.emit('input', { seq, ...input });
       }
     } else {
-      socket.emit('input', { seq, left: input.left, right: input.right, up: input.up, down: input.down });
+      socket.emit('input', { seq, ...input });
     }
     lastInputTime = time;
   }
 
+  // Обновляем всех игроков
   Object.keys(players).forEach(id => {
     const p = players[id];
-    if (!p.data) return;
+    if (!p || !p.data || !p.sprite) return;
     
     if (id === selfId) {
-      p.nameText.x = p.sprite.x - 24;
-      p.nameText.y = p.sprite.y - 44;
-      p.hpBarBg.x = p.sprite.x - 25;
-      p.hpBarBg.y = p.sprite.y - 30;
-      p.hpBar.x = p.sprite.x - 25;
-      p.hpBar.y = p.sprite.y - 30;
+      // Для своего игрока UI уже обновлен выше
     } else {
-      const lerpFactor = Math.min(0.3, delta / 16.67);
-      p.sprite.x = Phaser.Math.Linear(p.sprite.x, p.data.x, lerpFactor);
-      p.sprite.y = Phaser.Math.Linear(p.sprite.y, p.data.y, lerpFactor);
+      // Для других игроков используем интерполяцию
+      const now = Date.now();
+      const timeDiff = now - p.lastUpdateTime;
       
+      if (timeDiff < 1000) { // Интерполируем только если данные не слишком старые
+        const lerpFactor = Math.min(LERP_FACTOR * (timeDiff / 16.67), 1);
+        p.sprite.x = Phaser.Math.Linear(p.sprite.x, p.lastServerX, lerpFactor);
+        p.sprite.y = Phaser.Math.Linear(p.sprite.y, p.lastServerY, lerpFactor);
+      } else {
+        // Если данные старые, телепортируем
+        p.sprite.x = p.lastServerX;
+        p.sprite.y = p.lastServerY;
+      }
+      
+      // Обновляем UI
       p.nameText.x = p.sprite.x - 24;
       p.nameText.y = p.sprite.y - 44;
       p.hpBarBg.x = p.sprite.x - 25;
@@ -1111,6 +1078,7 @@ function update(time, delta) {
       p.hpBar.y = p.sprite.y - 30;
     }
     
+    // Обновляем HP бар
     const hpPercentage = Math.max(0, p.data.hp / 100);
     const hpWidth = hpPercentage * 50;
     p.hpBar.width = hpWidth;
@@ -1119,6 +1087,7 @@ function update(time, delta) {
     else if (p.data.hp > 30) p.hpBar.fillColor = 0xffa500;
     else p.hpBar.fillColor = 0xff0000;
 
+    // Проверка кустов
     let inBush = false;
     for (const bush of bushSprites) {
         if (p.sprite.body && Phaser.Geom.Intersects.RectangleToRectangle(p.sprite.getBounds(), bush.getBounds())) {
@@ -1127,6 +1096,7 @@ function update(time, delta) {
         }
     }
 
+    // Управление видимостью
     if (!p.data.alive) {
       p.sprite.setAlpha(0.4);
       p.nameText.setAlpha(0);
@@ -1151,11 +1121,11 @@ function update(time, delta) {
       p.hpBarBg.setAlpha(1);
     }
 
-    // Visual effect for active power-up
+    // Эффекты power-up
     if (p.data.activePowerUp) {
         const color = p.data.activePowerUp === 'speed' ? 0xFFFF00 : 0xFF0000;
         const now = Date.now();
-        const a = 0.5 + Math.sin(now / 150) * 0.5; // Pulsating alpha
+        const a = 0.5 + Math.sin(now / 150) * 0.5;
         if (!p.powerUpAura) {
             p.powerUpAura = scene.add.ellipse(p.sprite.x, p.sprite.y, 40, 40, color, 0.3);
             p.powerUpAura.setDepth(p.sprite.depth - 1);
@@ -1174,10 +1144,8 @@ function update(time, delta) {
 window.addEventListener('load', () => { 
   console.log("Window loaded, creating Phaser game...");
   game = new Phaser.Game(config); 
-  console.log("Phaser game created:", game);
 });
 
-// Добавьте обработку изменения размера окна
 window.addEventListener('resize', () => {
   if (game) {
     game.scale.resize(window.innerWidth, window.innerHeight);

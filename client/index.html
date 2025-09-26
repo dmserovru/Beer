@@ -141,8 +141,17 @@
           right: 5px;
           top: 5px;
           width: 100px;
-          padding: 8px;
+          padding: 5px;
           font-size: 10px;
+          max-height: 60vh;
+        }
+        #king-of-the-hill {
+          font-size: 12px;
+          padding: 5px 10px;
+        }   
+        #mobile-controls {
+          padding: 0 10px;
+          bottom: 10px;
         }
         #joystick-area {
           width: 100px;
@@ -160,20 +169,21 @@
           font-size: 16px;
         }
       }
-      @media (max-height: 600px) {
-        #mobile-controls {
-          bottom: 10px;
-        }
-        #joystick-area {
+      @media (max-width: 480px) {
+        #leaderboard {
           width: 90px;
-          height: 90px;
-        }
+          font-size: 9px;
+        }      
+        #joystick-area {
+          width: 80px;
+          height: 80px;
+        }      
         #joystick {
-          width: 45px;
-          height: 45px;
-          left: 22.5px;
-          top: 22.5px;
-        }
+          width: 40px;
+          height: 40px;
+          left: 20px;
+          top: 20px;
+        } 
         .action-btn {
           width: 50px;
           height: 50px;
