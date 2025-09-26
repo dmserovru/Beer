@@ -2,31 +2,212 @@
 <html>
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>BeerMugGame</title>
     <style>
-      body { margin:0; background:#1b1b2f; color:#fff; font-family: Arial, sans-serif }
-      #game-container { width: 800px; height: 600px; margin:20px auto; border: 2px solid #333; background: #091021; position: relative; }
-      #ui { text-align:center; margin-top:6px }
-      #join { margin: 16px; text-align:center }
-      #leaderboard { position: absolute; right: -240px; top: 20px; width:220px; color:#fff; }
-      #overlay { position:absolute; left:10px; top:10px; z-index:999; }
+      body { 
+        margin:0; 
+        background:#1b1b2f; 
+        color:#fff; 
+        font-family: Arial, sans-serif;
+        overflow: hidden;
+        touch-action: manipulation;
+        -webkit-touch-callout: none;
+        -webkit-user-select: none;
+        -khtml-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        user-select: none;
+      }
+      #game-container { 
+        width: 100vw; 
+        height: 100vh; 
+        margin: 0 auto; 
+        background: #2a2a2a; 
+        position: relative; 
+        overflow: hidden;
+      }
+      #ui { 
+        text-align:center; 
+        margin-top:6px; 
+      }
+      #join { 
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: rgba(0, 0, 0, 0.8);
+        padding: 20px;
+        border-radius: 10px;
+        z-index: 1000;
+        width: 80%;
+        max-width: 300px;
+      }
+      #join input, #join button {
+        padding: 12px;
+        margin: 8px 0;
+        border: none;
+        border-radius: 5px;
+        width: 100%;
+        box-sizing: border-box;
+        font-size: 16px;
+      }
+      #join input {
+        background: white;
+        color: black;
+      }
+      #join button {
+        background: #4CAF50;
+        color: white;
+        cursor: pointer;
+      }
+      #join button:hover {
+        background: #45a049;
+      }
+      #leaderboard {
+        position: absolute; 
+        right: 10px; 
+        top: 10px; 
+        width: 120px; 
+        background: rgba(0, 0, 0, 0.7);
+        padding: 10px;
+        border-radius: 5px;
+        color: #fff;
+        font-family: Arial;
+        max-height: 80vh;
+        overflow-y: auto;
+        font-size: 12px;
+        z-index: 100;
+      }
+
+      #king-of-the-hill {
+        position: absolute;
+        top: 10px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0,0,0,0.6);
+        color: white;
+        padding: 8px 15px;
+        border-radius: 10px;
+        font-family: sans-serif;
+        text-align: center;
+        display: none; /* Initially hidden */
+      }
+      #mobile-controls {
+        position: absolute;
+        bottom: 20px;
+        left: 0;
+        right: 0;
+        display: flex;
+        justify-content: space-between;
+        padding: 0 20px;
+        z-index: 100;
+      }
+      #joystick-area {
+        width: 120px;
+        height: 120px;
+        position: relative;
+        touch-action: none;
+      }
+      #joystick {
+        width: 60px;
+        height: 60px;
+        background: rgba(255, 255, 255, 0.5);
+        border-radius: 50%;
+        position: absolute;
+        left: 30px;
+        top: 30px;
+        touch-action: none;
+      }
+      #action-buttons {
+        display: flex;
+        gap: 20px;
+      }
+      .action-btn {
+        width: 70px;
+        height: 70px;
+        background: rgba(255, 215, 0, 0.7);
+        border-radius: 50%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-size: 20px;
+        color: white;
+        touch-action: none;
+        cursor: pointer;
+      }
+      @media (max-width: 768px) {
+        #leaderboard {
+          right: 5px;
+          top: 5px;
+          width: 100px;
+          padding: 8px;
+          font-size: 10px;
+        }
+        #joystick-area {
+          width: 100px;
+          height: 100px;
+        }
+        #joystick {
+          width: 50px;
+          height: 50px;
+          left: 25px;
+          top: 25px;
+        }
+        .action-btn {
+          width: 60px;
+          height: 60px;
+          font-size: 16px;
+        }
+      }
+      @media (max-height: 600px) {
+        #mobile-controls {
+          bottom: 10px;
+        }
+        #joystick-area {
+          width: 90px;
+          height: 90px;
+        }
+        #joystick {
+          width: 45px;
+          height: 45px;
+          left: 22.5px;
+          top: 22.5px;
+        }
+        .action-btn {
+          width: 50px;
+          height: 50px;
+          font-size: 14px;
+        }
+      }
     </style>
   </head>
   <body>
     <div id="game-root">
       <div id="join">
         <input id="name" placeholder="Введите имя" />
-        <button id="joinBtn">Войти</button>
+        <button id="joinBtn">Войти в игру</button>
       </div>
       <div id="game-container"></div>
-      <div id="leaderboard"></div>
+      <div id="leaderboard">
+        <div id="leaderboard-content"></div>
+      </div>
+      <div id="king-of-the-hill"></div>
+      <div id="mobile-controls" style="display: none;">
+        <div id="joystick-area">
+          <div id="joystick"></div>
+        </div>
+        <div id="action-buttons">
+          <div id="shoot-btn" class="action-btn">🔥</div>
+          <div id="swing-btn" class="action-btn">👊</div>
+        </div>
+      </div>
     </div>
 
     <!-- Phaser 3 CDN -->
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
     <!-- Socket.IO client -->
     <script src="/socket.io/socket.io.js"></script>
-    <script src="game.js?v=6"></script>
+<script src="game.js?v=9"></script>
   </body>
 </html>
