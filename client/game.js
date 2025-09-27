@@ -1,5 +1,638 @@
-const socket = io();
+function getRankColor(index) {
+  const colors = ['#FFD700', '#C0C0C0', '#CD7F32', '#FFFFFF'];
+  return colors[index] || '#FFFFFF';
+}
+
+// Создание текстур
+function createBeerMugTexture(scene) {
+  const graphics = scene.add.graphics();
+  const w = 44, h = 44;
+
+  graphics.fillStyle(0x87CEEB, 0.6);
+  graphics.fillEllipse(w / 2, h / 2, 38, 40);
+
+  graphics.fillStyle(0xFFB000, 0.9);
+  graphics.fillEllipse(w / 2, h/2 + 4, 34, 30);
+
+  graphics.fillStyle(0xFFFFFF, 0.95);
+  graphics.fillEllipse(w / 2, h/2 - 10, 32, 14);
+  
+  graphics.fillCircle(w / 2 - 8, h / 2 - 12, 3);
+  graphics.fillCircle(w / 2 + 6, h / 2 - 14, 4);
+  graphics.fillCircle(w / 2 + 2, h / 2 - 8, 2);
+
+  graphics.lineStyle(4, 0x87CEEB, 0.7);
+  graphics.beginPath();
+  graphics.arc(w - 6, h/2, 12, Math.PI / 2, -Math.PI / 2, true);
+  graphics.strokePath();
+
+  graphics.fillStyle(0xFFFFFF, 0.3);
+  graphics.fillEllipse(w/2 - 6, h/2 - 8, 6, 20);
+
+  graphics.generateTexture('beer', w, h);
+  graphics.destroy();
+}
+
+function createBeerProjectileTexture(scene) {
+  const graphics = scene.add.graphics();
+
+  graphics.fillStyle(0xFFB000, 0.9);
+  graphics.fillEllipse(8, 8, 14, 12);
+  
+  graphics.fillStyle(0xFFFFFF, 0.8);
+  graphics.fillEllipse(8, 6, 8, 6);
+  
+  graphics.fillStyle(0xFFFFFF, 0.6);
+  graphics.fillEllipse(6, 5, 3, 3);
+
+  graphics.generateTexture('beerProjectile', 16, 16);
+  graphics.destroy();
+}
+
+function createWallTexture(scene) {
+  const graphics = scene.add.graphics();
+
+  graphics.fillStyle(0x8B4513);
+  graphics.fillRect(0, 0, 64, 64);
+
+  graphics.lineStyle(1, 0x654321, 0.8);
+  for (let y = 0; y < 64; y += 16) {
+    graphics.moveTo(0, y);
+    graphics.lineTo(64, y);
+  }
+  for (let x = 0; x < 64; x += 32) {
+    graphics.moveTo(x, 0);
+    graphics.lineTo(x, 64);
+  }
+  
+  graphics.lineStyle(2, 0x5D4E37, 0.6);
+  for (let y = 16; y < 64; y += 16) {
+    graphics.moveTo(0, y);
+    graphics.lineTo(64, y);
+  }
+  
+  graphics.strokePath();
+  graphics.generateTexture('wallTexture', 64, 64);
+  graphics.destroy();
+}
+
+function createBushTexture(scene) {
+  const graphics = scene.add.graphics();
+
+  graphics.fillStyle(0x228B22, 0.8);
+  graphics.fillEllipse(32, 35, 55, 35);
+  graphics.fillEllipse(15, 30, 35, 25);
+  graphics.fillEllipse(49, 30, 35, 25);
+  graphics.fillEllipse(32, 20, 40, 25);
+
+  graphics.fillStyle(0x006400, 0.4);
+  graphics.fillEllipse(20, 32, 20, 15);
+  graphics.fillEllipse(44, 32, 20, 15);
+
+  graphics.lineStyle(1, 0x006400, 0.6);
+  graphics.beginPath();
+  graphics.arc(32, 32, 28, 0, Math.PI * 2);
+  graphics.strokePath();
+
+  graphics.generateTexture('bushTexture', 64, 64);
+  graphics.destroy();
+}
+
+function createTreeTexture(scene) {
+  const graphics = scene.add.graphics();
+
+  graphics.fillStyle(0x8B4513);
+  graphics.fillRect(26, 35, 12, 25);
+  
+  graphics.lineStyle(1, 0x654321, 0.5);
+  graphics.moveTo(28, 35);
+  graphics.lineTo(28, 60);
+  graphics.moveTo(36, 35);
+  graphics.lineTo(36, 60);
+  graphics.strokePath();
+
+  graphics.fillStyle(0x228B22, 0.9);
+  graphics.fillEllipse(32, 25, 45, 35);
+  graphics.fillEllipse(22, 28, 25, 20);
+  graphics.fillEllipse(42, 28, 25, 20);
+  
+  graphics.fillStyle(0x006400, 0.3);
+  graphics.fillEllipse(25, 30, 15, 12);
+  graphics.fillEllipse(39, 30, 15, 12);
+
+  graphics.generateTexture('treeTexture', 64, 64);
+  graphics.destroy();
+}
+
+function createPowerUpTextures(scene) {
+  const graphics = scene.add.graphics();
+
+  graphics.fillStyle(0xFFFF00, 0.9);
+  graphics.beginPath();
+  graphics.moveTo(12, 2);
+  graphics.lineTo(6, 10);
+  graphics.lineTo(10, 10);
+  graphics.lineTo(4, 22);
+  graphics.lineTo(14, 12);
+  graphics.lineTo(10, 12);
+  graphics.closePath();
+  graphics.fillPath();
+  
+  graphics.lineStyle(1, 0xFFD700, 0.8);
+  graphics.strokePath();
+  
+  graphics.generateTexture('powerup_speed', 18, 24);
+  graphics.clear();
+
+  graphics.fillStyle(0xFF4444, 0.9);
+  graphics.fillRect(8, 2, 2, 20);
+  graphics.fillRect(2, 11, 14, 2);
+  
+  graphics.lineStyle(1, 0xCC0000, 0.8);
+  graphics.strokeRect(8, 2, 2, 20);
+  graphics.strokeRect(2, 11, 14, 2);
+  
+  graphics.generateTexture('powerup_damage', 18, 24);
+  graphics.destroy();
+}
+
+function createBottleTexture(scene) {
+  const graphics = scene.add.graphics();
+  
+  graphics.fillStyle(0x4A4A4A, 0.8);
+  graphics.fillRoundedRect(6, 4, 4, 16, 1);
+  
+  graphics.fillStyle(0x3A3A3A, 0.9);
+  graphics.fillRect(7, 0, 2, 6);
+  
+  graphics.fillStyle(0xFFD700, 0.7);
+  graphics.fillRect(4, 8, 8, 6);
+  
+  graphics.fillStyle(0xFFFFFF, 0.3);
+  graphics.fillRect(8, 6, 1, 10);
+
+  graphics.generateTexture('bottle', 16, 24);
+  graphics.destroy();
+}
+
+// Создание объектов мира
+function createWalls(scene, wallsData) {
+  walls = wallsData;
+  wallSprites = [];
+
+  walls.forEach(wall => {
+    const wallSprite = scene.add.rectangle(wall.x, wall.y, wall.width, wall.height, 0x8B4513);
+    wallSprite.setRotation(wall.angle * Math.PI / 180);
+    wallSprite.setDepth(1);
+    
+    scene.physics.add.existing(wallSprite, true);
+
+    const texture = scene.add.tileSprite(wall.x, wall.y, wall.width, wall.height, 'wallTexture');
+    texture.setRotation(wall.angle * Math.PI / 180);
+    texture.setDepth(1);
+    texture.setAlpha(0.9);
+
+    wallSprites.push(wallSprite);
+  });
+}
+
+function createBushes(scene, bushesData) {
+  bushes = bushesData;
+  bushSprites = [];
+
+  bushes.forEach(bush => {
+    const bushSprite = scene.add.sprite(bush.x, bush.y, 'bushTexture');
+    bushSprite.setDepth(0.5);
+    bushSprite.setAlpha(0.8);
+    
+    scene.physics.add.existing(bushSprite, true);
+    if (bushSprite.body) {
+      bushSprite.body.setCircle(30);
+    }
+    
+    bushSprites.push(bushSprite);
+  });
+}
+
+function createTrees(scene, treesData) {
+  trees = treesData;
+  treeSprites = [];
+
+  trees.forEach(tree => {
+    const treeSprite = scene.add.sprite(tree.x, tree.y, 'treeTexture');
+    treeSprite.setDepth(2);
+    treeSprites.push(treeSprite);
+  });
+}
+
+function createPowerUp(scene, powerUpData) {
+  const texture = powerUpData.type === 'speed' ? 'powerup_speed' : 'powerup_damage';
+  const sprite = scene.add.sprite(powerUpData.x, powerUpData.y, texture);
+  sprite.setDepth(3);
+  powerUpSprites[powerUpData.id] = sprite;
+
+  scene.tweens.add({
+    targets: sprite,
+    scaleX: 1.3,
+    scaleY: 1.3,
+    duration: 800,
+    yoyo: true,
+    repeat: -1,
+    ease: 'Sine.easeInOut'
+  });
+
+  scene.tweens.add({
+    targets: sprite,
+    rotation: Math.PI * 2,
+    duration: 3000,
+    repeat: -1,
+    ease: 'Linear'
+  });
+}
+
+function createOrUpdateHillZone(scene, hillZone) {
+  if (!hillZoneSprite) {
+    hillZoneSprite = scene.add.circle(hillZone.x, hillZone.y, hillZone.radius, 0xFFD700, 0.2);
+    hillZoneSprite.setStrokeStyle(3, 0xFFD700, 0.6);
+    hillZoneSprite.setDepth(-1);
+    
+    scene.tweens.add({
+      targets: hillZoneSprite,
+      alpha: 0.4,
+      duration: 2000,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut'
+    });
+  } else {
+    scene.tweens.add({
+      targets: hillZoneSprite,
+      x: hillZone.x,
+      y: hillZone.y,
+      duration: 1000,
+      ease: 'Power2.easeInOut'
+    });
+  }
+}
+
+function createBeerProjectile(scene, projectileData) {
+  try {
+    if (projectiles[projectileData.id]) {
+      projectiles[projectileData.id].destroy();
+      delete projectiles[projectileData.id];
+    }
+
+    const texture = projectileData.type === 'bottle' ? 'bottle' : 'beerProjectile';
+    const projectile = scene.physics.add.sprite(projectileData.x, projectileData.y, texture);
+    
+    projectile.setVelocity(projectileData.vx, projectileData.vy);
+    projectile.setCollideWorldBounds(false);
+    projectile.setBounce(0.3);
+    projectile.setDrag(30);
+    projectile.setDepth(6);
+    projectile.id = projectileData.id;
+
+    scene.tweens.add({
+      targets: projectile,
+      rotation: Math.PI * 4,
+      duration: 2000,
+      repeat: -1,
+      ease: 'Linear'
+    });
+
+    wallSprites.forEach(wall => {
+      scene.physics.add.collider(projectile, wall, () => {
+        if (projectiles[projectile.id]) {
+          scene.tweens.add({
+            targets: projectiles[projectile.id],
+            alpha: 0,
+            scaleX: 0.5,
+            scaleY: 0.5,
+            duration: 200,
+            onComplete: () => {
+              if (projectiles[projectile.id]) {
+                projectiles[projectile.id].destroy();
+                delete projectiles[projectile.id];
+              }
+            }
+          });
+        }
+      });
+    });
+
+    scene.time.delayedCall(5000, () => {
+      if (projectiles[projectileData.id]) {
+        projectiles[projectileData.id].destroy();
+        delete projectiles[projectileData.id];
+      }
+    });
+
+    projectiles[projectileData.id] = projectile;
+    return projectile;
+  } catch (error) {
+    console.error("Error creating projectile:", error);
+    return null;
+  }
+}
+
+function update(time, delta) {
+  if (!selfId || !players[selfId]) return;
+
+  const deltaTime = Math.min(delta, 50);
+
+  // Обработка ввода
+  let input;
+  if (isMobileDevice) {
+    input = {
+      seq: ++seq,
+      left: mobileInput.left,
+      right: mobileInput.right,
+      up: mobileInput.up,
+      down: mobileInput.down,
+      action: null
+    };
+  } else {
+    input = {
+      seq: ++seq,
+      left: cursors.left.isDown,
+      right: cursors.right.isDown,
+      up: cursors.up.isDown,
+      down: cursors.down.isDown,
+      action: swingKey.isDown ? 'swing' : null
+    };
+
+    const canShoot = time - lastShootTime > SHOOT_COOLDOWN;
+    if (shootKey.isDown && canShoot) {
+      performShoot(time);
+    }
+  }
+
+  // Обновление движения для своего игрока
+  const me = players[selfId];
+  if (me && me.sprite && me.data.alive) {
+    const speed = me.data.activePowerUp === 'speed' ? 300 : 200;
+    let vx = 0, vy = 0;
+
+    if (input.left) vx -= 1;
+    if (input.right) vx += 1;
+    if (input.up) vy -= 1;
+    if (input.down) vy += 1;
+
+    const len = Math.hypot(vx, vy);
+    if (len > 0) {
+      vx = (vx / len) * speed;
+      vy = (vy / len) * speed;
+      me.lastDirection = { x: vx / speed, y: vy / speed };
+    }
+
+    me.sprite.setVelocity(vx, vy);
+
+    // Небольшой поворот кружки при движении
+    if (vx !== 0 || vy !== 0) {
+      const angle = Math.atan2(vy, vx) * (180 / Math.PI);
+      game.scene.scenes[0].tweens.add({
+        targets: me.sprite,
+        rotation: angle * 0.01,
+        duration: 300,
+        ease: 'Power2'
+      });
+    }
+  }
+
+  // Отправка ввода на сервер
+  if (time - lastInputTime >= 1000 / INPUT_SEND_RATE) {
+    sendInputToServer(input);
+    lastInputTime = time;
+  }
+
+  // Обновление всех игроков
+  updateAllPlayers(deltaTime);
+}
+
+function performShoot(time) {
+  const me = players[selfId];
+  if (!me || !me.sprite || !me.data.alive) return;
+
+  let shootVx = 0, shootVy = 0;
+  
+  if (cursors.left.isDown) shootVx -= 1;
+  if (cursors.right.isDown) shootVx += 1;
+  if (cursors.up.isDown) shootVy -= 1;
+  if (cursors.down.isDown) shootVy += 1;
+
+  if (shootVx === 0 && shootVy === 0) {
+    shootVx = me.lastDirection.x;
+    shootVy = me.lastDirection.y;
+  }
+
+  if (shootVx === 0 && shootVy === 0) {
+    shootVx = 1;
+  }
+
+  const speed = 350;
+  const len = Math.hypot(shootVx, shootVy);
+  if (len > 0) {
+    shootVx = (shootVx / len) * speed;
+    shootVy = (shootVy / len) * speed;
+  }
+
+  lastShootTime = time;
+  const localId = `proj_${selfId}_${Date.now()}_${Math.random()}`;
+
+  const projectileData = {
+    id: localId,
+    x: me.sprite.x,
+    y: me.sprite.y,
+    vx: shootVx,
+    vy: shootVy
+  };
+
+  createBeerProjectile(game.scene.scenes[0], projectileData);
+  
+  if (game.scene.scenes[0].sound.sounds.find(s => s.key === 'shoot')) {
+    game.scene.scenes[0].sound.play('shoot');
+  }
+
+  socket.emit('shoot', {
+    ...projectileData,
+    localId: localId
+  });
+}
+
+function sendInputToServer(input) {
+  const me = players[selfId];
+  if (!me || !me.sprite) return;
+
+  if (input.action === 'swing') {
+    const range = 100;
+    let targetId = null;
+    let bestDistance = range;
+
+    Object.keys(players).forEach(id => {
+      if (id === selfId) return;
+      const p = players[id];
+      if (p && p.sprite && p.data.alive) {
+        const dx = p.sprite.x - me.sprite.x;
+        const dy = p.sprite.y - me.sprite.y;
+        const distance = Math.hypot(dx, dy);
+        if (distance < bestDistance) {
+          bestDistance = distance;
+          targetId = id;
+        }
+      }
+    });
+
+    if (targetId) {
+      socket.emit('input', {
+        ...input,
+        action: 'swing',
+        targetId,
+        ax: me.sprite.x,
+        ay: me.sprite.y
+      });
+    } else {
+      socket.emit('input', input);
+    }
+  } else {
+    socket.emit('input', input);
+  }
+}
+
+function updateAllPlayers(deltaTime) {
+  Object.keys(players).forEach(id => {
+    const player = players[id];
+    if (!player || !player.sprite) return;
+
+    // Плавная интерполяция для других игроков
+    if (id !== selfId && player.data.alive) {
+      const dx = player.targetX - player.sprite.x;
+      const dy = player.targetY - player.sprite.y;
+      const distance = Math.hypot(dx, dy);
+
+      if (distance > 2) {
+        player.sprite.x += dx * 0.15;
+        player.sprite.y += dy * 0.15;
+      }
+    }
+
+    // Обновление UI элементов
+    updatePlayerUI(player);
+    
+    // Обновление эффектов
+    updatePlayerEffects(player, id);
+  });
+}
+
+function updatePlayerUI(player) {
+  if (!player.sprite || !player.data) return;
+
+  player.nameText.x = player.sprite.x;
+  player.nameText.y = player.sprite.y - 45;
+
+  player.hpBarBg.x = player.sprite.x;
+  player.hpBarBg.y = player.sprite.y - 32;
+  player.hpBar.x = player.sprite.x;
+  player.hpBar.y = player.sprite.y - 32;
+
+  const hpPercentage = Math.max(0, player.data.hp / 100);
+  const hpWidth = hpPercentage * 50;
+  player.hpBar.width = hpWidth;
+
+  if (player.data.hp > 60) {
+    player.hpBar.fillColor = 0x00ff00;
+  } else if (player.data.hp > 30) {
+    player.hpBar.fillColor = 0xffa500;
+  } else {
+    player.hpBar.fillColor = 0xff0000;
+  }
+}
+
+function updatePlayerEffects(player, playerId) {
+  if (!player.sprite || !player.data) return;
+
+  // Проверка нахождения в кустах
+  let inBush = false;
+  for (const bush of bushSprites) {
+    if (player.sprite.body && bush.body) {
+      const dx = player.sprite.x - bush.x;
+      const dy = player.sprite.y - bush.y;
+      if (Math.hypot(dx, dy) < 35) {
+        inBush = true;
+        break;
+      }
+    }
+  }
+
+  // Обновление прозрачности
+  if (!player.data.alive) {
+    player.sprite.setAlpha(0.3);
+    player.nameText.setAlpha(0.3);
+    player.hpBar.setAlpha(0);
+    player.hpBarBg.setAlpha(0);
+  } else if (inBush) {
+    if (playerId !== selfId) {
+      player.sprite.setAlpha(0.4);
+      player.nameText.setAlpha(0.4);
+      player.hpBar.setAlpha(0.4);
+      player.hpBarBg.setAlpha(0.4);
+    } else {
+      player.sprite.setAlpha(0.8);
+      player.nameText.setAlpha(1);
+      player.hpBar.setAlpha(1);
+      player.hpBarBg.setAlpha(1);
+    }
+  } else {
+    player.sprite.setAlpha(1);
+    player.nameText.setAlpha(1);
+    player.hpBar.setAlpha(1);
+    player.hpBarBg.setAlpha(1);
+  }
+
+  // Обновление ауры от powerup
+  if (player.data.activePowerUp) {
+    const color = player.data.activePowerUp === 'speed' ? 0xFFFF00 : 0xFF0000;
+    const pulseFactor = 0.3 + Math.sin(Date.now() / 200) * 0.2;
+    
+    if (!player.powerUpAura) {
+      player.powerUpAura = game.scene.scenes[0].add.ellipse(
+        player.sprite.x, 
+        player.sprite.y, 
+        50, 50, 
+        color, 
+        pulseFactor
+      );
+      player.powerUpAura.setDepth(player.sprite.depth - 1);
+      player.powerUpAura.setStrokeStyle(2, color, 0.8);
+    }
+    
+    player.powerUpAura.x = player.sprite.x;
+    player.powerUpAura.y = player.sprite.y;
+    player.powerUpAura.setAlpha(pulseFactor);
+  } else if (player.powerUpAura) {
+    player.powerUpAura.destroy();
+    player.powerUpAura = null;
+  }
+}
+
+// Инициализация игры
+window.addEventListener('load', () => {
+  console.log("Window loaded, creating Phaser game...");
+  game = new Phaser.Game(config);
+});
+
+// Обработка изменения размера окна
+window.addEventListener('resize', () => {
+  if (game && game.scale) {
+    game.scale.resize(window.innerWidth, window.innerHeight);
+    
+    // Пересчитываем масштаб для статичной камеры
+    if (game.scene.scenes[0] && game.scene.scenes[0].cameras.main && worldSize) {
+      setupStaticCamera(game.scene.scenes[0], worldSize);
+    }
+  }
+});const socket = io();
 console.log("Socket created:", socket);
+
 let game;
 let selfId = null;
 let players = {};
@@ -9,10 +642,9 @@ let shootKey;
 let seq = 0;
 let projectiles = {};
 let lastShootTime = 0;
-const SHOOT_COOLDOWN = 500;
+const SHOOT_COOLDOWN = 300;
 let lastInputTime = 0;
 const INPUT_SEND_RATE = 30;
-let pendingInputs = [];
 let walls = [];
 let wallSprites = [];
 let bushes = [];
@@ -20,9 +652,7 @@ let bushSprites = [];
 let trees = [];
 let treeSprites = [];
 let powerUpSprites = {};
-
 let hillZoneSprite;
-let kingOfTheHillUI;
 
 // Мобильные элементы управления
 let joystickOrigin = { x: 0, y: 0 };
@@ -30,9 +660,9 @@ let joystickActive = false;
 let mobileInput = { left: false, right: false, up: false, down: false };
 let isMobileDevice = false;
 
-// Оптимизация интерполяции
-const LERP_FACTOR = 0.2;
-const POSITION_THRESHOLD = 30;
+// Статичная камера
+const CAMERA_SCALE = 1;
+let worldSize = { width: 800, height: 600 };
 
 const config = {
   type: Phaser.AUTO,
@@ -55,11 +685,20 @@ const config = {
   scale: {
     mode: Phaser.Scale.RESIZE,
     autoCenter: Phaser.Scale.CENTER_BOTH
+  },
+  render: {
+    pixelArt: false,
+    antialias: true
   }
 };
 
 function preload() {
   console.log("Loading textures...");
+  
+  this.load.on('loaderror', (file) => {
+    console.warn('Failed to load:', file.src);
+  });
+
   this.load.audio('shoot', 'assets/shoot.mp3');
   this.load.audio('hit', 'assets/hit.mp3');
   this.load.audio('death', 'assets/death.mp3');
@@ -70,6 +709,7 @@ function create() {
   console.log("Game scene created!");
   const scene = this;
 
+  // Создаем все текстуры
   createBeerMugTexture(scene);
   createBeerProjectileTexture(scene);
   createWallTexture(scene);
@@ -78,8 +718,9 @@ function create() {
   createPowerUpTextures(scene);
   createBottleTexture(scene);
 
+  // Определяем тип устройства
   isMobileDevice = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) ||
-                   window.innerWidth < 768;
+                   window.innerWidth < 768 || 'ontouchstart' in window;
 
   if (isMobileDevice) {
     console.log("Mobile device detected");
@@ -92,23 +733,35 @@ function create() {
     shootKey = scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
   }
 
+  // Настройка UI
   const joinBtn = document.getElementById('joinBtn');
   const nameInput = document.getElementById('name');
 
   if (joinBtn) {
     joinBtn.addEventListener('click', () => {
-      const name = nameInput ? nameInput.value || 'Player' : 'Player';
+      const name = nameInput ? nameInput.value.trim() || 'Player' : 'Player';
       console.log("Join button clicked! Name:", name);
       socket.emit('join', { name });
     });
   }
 
+  if (nameInput) {
+    nameInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        joinBtn.click();
+      }
+    });
+  }
+
+  // Обработчики сокетов
   socket.on('connect', () => {
     console.log("Connected to server!");
   });
 
   socket.on('disconnect', () => {
     console.log("Disconnected from server!");
+    document.getElementById('join').style.display = 'block';
+    if (nameInput) nameInput.placeholder = 'Переподключение...';
   });
 
   socket.on('joined', (data) => {
@@ -117,24 +770,17 @@ function create() {
     document.getElementById('join').style.display = 'none';
 
     if (data.worldSize) {
-      scene.physics.world.setBounds(0, 0, data.worldSize.width, data.worldSize.height);
-
-      const gridGraphics = scene.add.graphics();
-      gridGraphics.fillStyle(0x222222, 1);
-      gridGraphics.fillRect(0, 0, data.worldSize.width, data.worldSize.height);
-      gridGraphics.lineStyle(1, 0x333333, 1);
-      for (let i = 0; i < data.worldSize.width; i += 50) {
-        gridGraphics.moveTo(i, 0);
-        gridGraphics.lineTo(i, data.worldSize.height);
-      }
-      for (let i = 0; i < data.worldSize.height; i += 50) {
-        gridGraphics.moveTo(0, i);
-        gridGraphics.lineTo(data.worldSize.width, i);
-      }
-      gridGraphics.strokePath();
-      gridGraphics.setDepth(-1);
+      worldSize = data.worldSize;
+      scene.physics.world.setBounds(0, 0, worldSize.width, worldSize.height);
+      
+      // Настраиваем статичную камеру
+      setupStaticCamera(scene, worldSize);
+      
+      // Создаем фон
+      createWorldBackground(scene, worldSize);
     }
 
+    // Создаем объекты мира
     createWalls(scene, data.walls);
     createBushes(scene, data.bushes || []);
     createTrees(scene, data.trees || []);
@@ -142,6 +788,7 @@ function create() {
     if (data.powerUps) {
       data.powerUps.forEach(p => createPowerUp(scene, p));
     }
+
     if (data.hillZone) {
       createOrUpdateHillZone(scene, data.hillZone);
     }
@@ -154,7 +801,7 @@ function create() {
 
   socket.on('joinError', (err) => {
     console.error("Join error:", err);
-    alert(err.message || 'Join error');
+    alert(err.message || 'Ошибка подключения');
   });
 
   socket.on('playerJoined', ({ player }) => {
@@ -169,13 +816,18 @@ function create() {
 
   socket.on('playerDied', ({ id, by }) => {
     const p = players[id];
-    if (p) {
-      scene.sound.play('death');
+    if (p && p.sprite) {
+      if (scene.sound.sounds.find(s => s.key === 'death')) {
+        scene.sound.play('death');
+      }
+      
       scene.tweens.add({
         targets: p.sprite,
-        alpha: 0.4,
+        alpha: 0.3,
         angle: 180,
-        duration: 300,
+        scaleX: 0.8,
+        scaleY: 0.8,
+        duration: 500,
         ease: 'Power2'
       });
     }
@@ -183,39 +835,38 @@ function create() {
 
   socket.on('respawned', () => {
     const me = players[selfId];
-    if (me) {
+    if (me && me.sprite) {
+      me.sprite.setAlpha(1);
+      me.sprite.setAngle(0);
+      me.sprite.setScale(1);
+      
       scene.tweens.add({
         targets: me.sprite,
-        scaleX: 1.2,
-        scaleY: 1.2,
+        scaleX: 1.3,
+        scaleY: 1.3,
         duration: 200,
         yoyo: true,
-        ease: 'Power2'
+        ease: 'Back.easeOut'
       });
     }
   });
 
   socket.on('beerHit', ({ attackerId, targetId, x, y }) => {
-    scene.sound.play('hit');
-    const splash = scene.add.circle(x, y, 20, 0xFFD700, 0.8);
-    scene.tweens.add({
-      targets: splash,
-      scaleX: 2,
-      scaleY: 2,
-      alpha: 0,
-      duration: 500,
-      ease: 'Power2',
-      onComplete: () => splash.destroy()
-    });
-
+    if (scene.sound.sounds.find(s => s.key === 'hit')) {
+      scene.sound.play('hit');
+    }
+    
+    createSplashEffect(scene, x, y);
+    
     const target = players[targetId];
-    if (target) {
+    if (target && target.sprite) {
       scene.tweens.add({
         targets: target.sprite,
-        x: target.sprite.x + 5,
-        duration: 50,
+        x: target.sprite.x + Phaser.Math.Between(-8, 8),
+        y: target.sprite.y + Phaser.Math.Between(-8, 8),
+        duration: 100,
         yoyo: true,
-        repeat: 3,
+        repeat: 2,
         ease: 'Power2'
       });
     }
@@ -227,8 +878,20 @@ function create() {
 
   socket.on('powerUpCollected', ({ powerUpId, playerId }) => {
     if (powerUpSprites[powerUpId]) {
-      powerUpSprites[powerUpId].destroy();
-      delete powerUpSprites[powerUpId];
+      scene.tweens.add({
+        targets: powerUpSprites[powerUpId],
+        scaleX: 2,
+        scaleY: 2,
+        alpha: 0,
+        duration: 300,
+        ease: 'Power2',
+        onComplete: () => {
+          if (powerUpSprites[powerUpId]) {
+            powerUpSprites[powerUpId].destroy();
+            delete powerUpSprites[powerUpId];
+          }
+        }
+      });
     }
   });
 
@@ -241,24 +904,39 @@ function create() {
       return;
     }
 
-    const projSprite = createBeerProjectile(scene, projectile);
-    if (projSprite) {
-      wallSprites.forEach(wall => {
-        scene.physics.add.collider(projSprite, wall, (projectileSprite, wallSprite) => {
-          const idToDestroy = projectileSprite.id;
-          if (projectiles[idToDestroy]) {
-            projectiles[idToDestroy].destroy();
-            delete projectiles[idToDestroy];
-          }
-        });
-      });
-    }
+    createBeerProjectile(scene, projectile);
   });
 
   socket.on('projectileDestroyed', ({ id }) => {
     if (projectiles[id]) {
+      scene.tweens.add({
+        targets: projectiles[id],
+        alpha: 0,
+        scaleX: 0.5,
+        scaleY: 0.5,
+        duration: 150,
+        ease: 'Power2',
+        onComplete: () => {
+          if (projectiles[id]) {
+            projectiles[id].destroy();
+            delete projectiles[id];
+          }
+        }
+      });
+    }
+  });
+
+  socket.on('projectileShattered', ({ id, x, y, type }) => {
+    if (projectiles[id]) {
       projectiles[id].destroy();
       delete projectiles[id];
+    }
+    
+    if (type === 'bottle') {
+      createShatterEffect(scene, x, y);
+      if (scene.sound.sounds.find(s => s.key === 'shatter')) {
+        scene.sound.play('shatter');
+      }
     }
   });
 
@@ -267,9 +945,11 @@ function create() {
       addOrUpdatePlayer(p, scene, p.id === selfId);
     });
 
-    const ids = statePlayers.map(p => p.id);
+    const activeIds = statePlayers.map(p => p.id);
     Object.keys(players).forEach(id => {
-      if (!ids.includes(id)) removePlayer(id);
+      if (!activeIds.includes(id)) {
+        removePlayer(id);
+      }
     });
 
     renderLeaderboard(leaderboard);
@@ -279,6 +959,51 @@ function create() {
   socket.on('hillMoved', (hillZone) => {
     createOrUpdateHillZone(scene, hillZone);
   });
+}
+
+function setupStaticCamera(scene, worldSize) {
+  // Вычисляем масштаб для помещения всей карты на экран
+  const scaleX = window.innerWidth / worldSize.width;
+  const scaleY = window.innerHeight / worldSize.height;
+  const scale = Math.min(scaleX, scaleY, 1.2); // Максимальный зум 1.2x
+  
+  console.log(`Setting up static camera: scale=${scale}, world=${worldSize.width}x${worldSize.height}, screen=${window.innerWidth}x${window.innerHeight}`);
+  
+  // Устанавливаем масштаб камеры
+  scene.cameras.main.setZoom(scale);
+  
+  // Центрируем камеру на карте
+  scene.cameras.main.centerOn(worldSize.width / 2, worldSize.height / 2);
+  
+  // Отключаем следование камеры
+  scene.cameras.main.stopFollow();
+}
+
+function createWorldBackground(scene, worldSize) {
+  const gridGraphics = scene.add.graphics();
+  gridGraphics.fillStyle(0x1a1a2e, 1);
+  gridGraphics.fillRect(0, 0, worldSize.width, worldSize.height);
+  
+  // Рисуем границы карты
+  gridGraphics.lineStyle(3, 0x444444, 1);
+  gridGraphics.strokeRect(0, 0, worldSize.width, worldSize.height);
+  
+  // Рисуем сетку
+  gridGraphics.lineStyle(1, 0x333333, 0.3);
+  const gridSize = 50;
+  
+  for (let x = 0; x <= worldSize.width; x += gridSize) {
+    gridGraphics.moveTo(x, 0);
+    gridGraphics.lineTo(x, worldSize.height);
+  }
+  
+  for (let y = 0; y <= worldSize.height; y += gridSize) {
+    gridGraphics.moveTo(0, y);
+    gridGraphics.lineTo(worldSize.width, y);
+  }
+  
+  gridGraphics.strokePath();
+  gridGraphics.setDepth(-10);
 }
 
 function setupMobileControls(scene) {
@@ -318,13 +1043,19 @@ function setupMobileControls(scene) {
   const shootBtn = document.getElementById('shoot-btn');
   const swingBtn = document.getElementById('swing-btn');
 
-  shootBtn.addEventListener('touchstart', (e) => {
-    mobileShoot();
-  });
+  if (shootBtn) {
+    shootBtn.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      mobileShoot();
+    });
+  }
 
-  swingBtn.addEventListener('touchstart', (e) => {
-    mobileSwing();
-  });
+  if (swingBtn) {
+    swingBtn.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      mobileSwing();
+    });
+  }
 }
 
 function updateJoystickPosition(touch) {
@@ -347,7 +1078,7 @@ function updateJoystickPosition(touch) {
 
   joystickElement.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
 
-  const threshold = maxDistance * 0.3;
+  const threshold = maxDistance * 0.25;
   mobileInput = {
     left: deltaX < -threshold,
     right: deltaX > threshold,
@@ -365,74 +1096,74 @@ function resetJoystick() {
 
 function mobileShoot() {
   const time = Date.now();
-  const canShoot = time - lastShootTime > SHOOT_COOLDOWN;
+  if (time - lastShootTime < SHOOT_COOLDOWN) return;
 
-  if (canShoot) {
-    const me = players[selfId];
-    if (me && me.sprite) {
-      let shootVx = 0, shootVy = 0;
+  const me = players[selfId];
+  if (!me || !me.sprite || !me.data.alive) return;
 
-      if (mobileInput.left) shootVx -= 1;
-      if (mobileInput.right) shootVx += 1;
-      if (mobileInput.up) shootVy -= 1;
-      if (mobileInput.down) shootVy += 1;
+  let shootVx = 0, shootVy = 0;
 
-      if (shootVx === 0 && shootVy === 0) {
-        shootVx = me.lastDirection.x;
-        shootVy = me.lastDirection.y;
-      }
+  if (mobileInput.left) shootVx -= 1;
+  if (mobileInput.right) shootVx += 1;
+  if (mobileInput.up) shootVy -= 1;
+  if (mobileInput.down) shootVy += 1;
 
-      if (shootVx === 0 && shootVy === 0) {
-        shootVx = 1;
-      }
-
-      const len = Math.hypot(shootVx, shootVy);
-      if (len > 0) {
-        shootVx = (shootVx / len) * 300;
-        shootVy = (shootVy / len) * 300;
-      }
-
-      lastShootTime = time;
-      const localId = `proj_${selfId}_${Date.now()}`;
-
-      const projectileData = {
-        id: localId,
-        x: me.sprite.x,
-        y: me.sprite.y,
-        vx: shootVx,
-        vy: shootVy
-      };
-
-      if (game) {
-        createBeerProjectile(game.scene.scenes[0], projectileData);
-        game.scene.scenes[0].sound.play('shoot');
-      }
-
-      socket.emit('shoot', {
-        ...projectileData,
-        localId: localId
-      });
-    }
+  if (shootVx === 0 && shootVy === 0) {
+    shootVx = me.lastDirection.x;
+    shootVy = me.lastDirection.y;
   }
+
+  if (shootVx === 0 && shootVy === 0) {
+    shootVx = 1;
+  }
+
+  const speed = 350;
+  const len = Math.hypot(shootVx, shootVy);
+  if (len > 0) {
+    shootVx = (shootVx / len) * speed;
+    shootVy = (shootVy / len) * speed;
+  }
+
+  lastShootTime = time;
+  const localId = `proj_${selfId}_${Date.now()}_${Math.random()}`;
+
+  const projectileData = {
+    id: localId,
+    x: me.sprite.x,
+    y: me.sprite.y,
+    vx: shootVx,
+    vy: shootVy
+  };
+
+  createBeerProjectile(game.scene.scenes[0], projectileData);
+  
+  if (game.scene.scenes[0].sound.sounds.find(s => s.key === 'shoot')) {
+    game.scene.scenes[0].sound.play('shoot');
+  }
+
+  socket.emit('shoot', {
+    ...projectileData,
+    localId: localId
+  });
 }
 
 function mobileSwing() {
   const me = players[selfId];
-  if (!me || !me.sprite) return;
+  if (!me || !me.sprite || !me.data.alive) return;
 
   const range = 100;
   let targetId = null;
-  let best = 1e9;
+  let bestDistance = range;
 
   Object.keys(players).forEach(id => {
     if (id === selfId) return;
     const p = players[id];
-    if (p && p.sprite) {
+    if (p && p.sprite && p.data.alive) {
       const dx = p.sprite.x - me.sprite.x;
       const dy = p.sprite.y - me.sprite.y;
-      const d = Math.hypot(dx, dy);
-      if (d < range && d < best) {
-        best = d;
+      const distance = Math.hypot(dx, dy);
+      if (distance < bestDistance) {
+        bestDistance = distance;
         targetId = id;
       }
     }
@@ -453,320 +1184,207 @@ function mobileSwing() {
   }
 }
 
-function addOrUpdatePlayer(p, scene, isSelf) {
-  if (!players[p.id]) {
-    console.log("Creating new player:", p.name, "at", p.x, p.y);
+function addOrUpdatePlayer(playerData, scene, isSelf) {
+  const existingPlayer = players[playerData.id];
 
-    const sprite = scene.physics.add.sprite(p.x, p.y, 'beer');
+  if (!existingPlayer) {
+    console.log("Creating new player:", playerData.name, "at", playerData.x, playerData.y);
+
+    const sprite = scene.physics.add.sprite(playerData.x, playerData.y, 'beer');
     sprite.setCollideWorldBounds(true);
-    sprite.setBounce(0.3);
-    sprite.setDrag(100);
+    sprite.setBounce(0.2);
+    sprite.setDrag(150);
     sprite.body.setCircle(22);
 
-    if (isSelf) {
-      scene.cameras.main.setZoom(isMobileDevice ? Math.min(window.innerWidth / 800, window.innerHeight / 600) : 1);
-      scene.cameras.main.centerOn(p.x, p.y);
-    }
-
-    const nameText = scene.add.text(p.x - 24, p.y - 44, p.name, {
+    // Создаем UI элементы
+    const nameText = scene.add.text(playerData.x, playerData.y - 45, playerData.name, {
       fontSize: '12px',
       fontFamily: 'Arial',
       color: '#ffffff',
       stroke: '#000000',
       strokeThickness: 2
-    }).setDepth(2);
+    }).setDepth(5).setOrigin(0.5);
 
-    const hpBarBg = scene.add.rectangle(p.x - 25, p.y - 30, 50, 6, 0x333333).setDepth(2);
-    const hpBar = scene.add.rectangle(p.x - 25, p.y - 30, 50, 6, 0x00ff00).setDepth(3);
+    const hpBarBg = scene.add.rectangle(playerData.x, playerData.y - 32, 50, 6, 0x333333).setDepth(4);
+    const hpBar = scene.add.rectangle(playerData.x, playerData.y - 32, 50, 6, 0x00ff00).setDepth(5);
 
-    players[p.id] = {
+    players[playerData.id] = {
       sprite,
       nameText,
       hpBar,
       hpBarBg,
-      data: p,
-      lastDirection: p.lastDirection || { x: 0, y: 0 },
-      lastServerX: p.x,
-      lastServerY: p.y,
+      data: playerData,
+      lastDirection: playerData.lastDirection || { x: 1, y: 0 },
+      targetX: playerData.x,
+      targetY: playerData.y,
       lastUpdateTime: Date.now(),
-      targetX: p.x,
-      targetY: p.y
+      powerUpAura: null
     };
 
+    // Добавляем коллизии с другими игроками
     Object.keys(players).forEach(id => {
-      if (id !== p.id && players[id] && players[id].sprite) {
+      if (id !== playerData.id && players[id] && players[id].sprite) {
         scene.physics.add.collider(sprite, players[id].sprite, handlePlayerCollision);
       }
     });
 
+    // Добавляем коллизии со стенами
     wallSprites.forEach(wall => {
       scene.physics.add.collider(sprite, wall);
     });
 
   } else {
-    const player = players[p.id];
-    player.data = p;
-    player.lastDirection = p.lastDirection || player.lastDirection;
-    player.targetX = p.x;
-    player.targetY = p.y;
-    player.lastUpdateTime = Date.now();
-
-    if (isSelf) {
-      const dx = player.sprite.x - p.x;
-      const dy = player.sprite.y - p.y;
-      const distance = Math.hypot(dx, dy);
-
-      if (distance > POSITION_THRESHOLD) {
-        player.sprite.x = p.x;
-        player.sprite.y = p.y;
-        console.log("Position corrected for self player");
-      }
+    // Обновляем существующего игрока
+    const player = players[playerData.id];
+    player.data = playerData;
+    player.lastDirection = playerData.lastDirection || player.lastDirection;
+    
+    if (!isSelf) {
+      // Для других игроков используем плавную интерполяцию
+      player.targetX = playerData.x;
+      player.targetY = playerData.y;
+    } else {
+      // Для себя сразу устанавливаем позицию (предотвращает дерганье)
+      player.sprite.x = playerData.x;
+      player.sprite.y = playerData.y;
     }
+    
+    player.lastUpdateTime = Date.now();
   }
 }
 
 function handlePlayerCollision(sprite1, sprite2) {
   const angle = Phaser.Math.Angle.Between(sprite1.x, sprite1.y, sprite2.x, sprite2.y);
-  const force = 30;
+  const force = 40;
 
   sprite1.setVelocity(
-    Math.cos(angle) * force,
-    Math.sin(angle) * force
-  );
-  sprite2.setVelocity(
     Math.cos(angle + Math.PI) * force,
     Math.sin(angle + Math.PI) * force
   );
+  sprite2.setVelocity(
+    Math.cos(angle) * force,
+    Math.sin(angle) * force
+  );
 
-  sprite1.setAngularVelocity(100);
-  sprite2.setAngularVelocity(-100);
+  sprite1.setAngularVelocity(Phaser.Math.Between(-150, 150));
+  sprite2.setAngularVelocity(Phaser.Math.Between(-150, 150));
 
   setTimeout(() => {
     if (sprite1 && sprite1.active) sprite1.setAngularVelocity(0);
     if (sprite2 && sprite2.active) sprite2.setAngularVelocity(0);
-  }, 300);
+  }, 400);
 }
 
 function removePlayer(id) {
-  const p = players[id];
-  if (!p) return;
+  const player = players[id];
+  if (!player) return;
 
-  if (p.sprite) p.sprite.destroy();
-  if (p.nameText) p.nameText.destroy();
-  if (p.hpBar) p.hpBar.destroy();
-  if (p.hpBarBg) p.hpBarBg.destroy();
-  if (p.powerUpAura) p.powerUpAura.destroy();
+  if (player.sprite) player.sprite.destroy();
+  if (player.nameText) player.nameText.destroy();
+  if (player.hpBar) player.hpBar.destroy();
+  if (player.hpBarBg) player.hpBarBg.destroy();
+  if (player.powerUpAura) player.powerUpAura.destroy();
 
   delete players[id];
 }
 
-function renderLeaderboard(top) {
-  const el = document.getElementById('leaderboard-content');
-  if (!el) return;
+function createSplashEffect(scene, x, y) {
+  const splash = scene.add.circle(x, y, 15, 0xFFD700, 0.8);
+  splash.setDepth(10);
+  
+  scene.tweens.add({
+    targets: splash,
+    scaleX: 3,
+    scaleY: 3,
+    alpha: 0,
+    duration: 600,
+    ease: 'Power2.easeOut',
+    onComplete: () => splash.destroy()
+  });
 
-  el.innerHTML = `
-    <h3 style="margin:0 0 8px 0; text-align:center; color: #FFD700;">Leaderboard</h3>
-    <div style="display: grid; grid-template-columns: 20px 1fr auto auto auto; gap: 5px; align-items: center; font-size: 14px;">
-        <span style="font-weight: bold;">#</span>
-        <span style="font-weight: bold;">Name</span>
-        <span style="font-weight: bold; text-align: right;">Score</span>
-        <span style="font-weight: bold; text-align: right;">Kills</span>
-        <span style="font-weight: bold; text-align: right;">Damage</span>
-        ${top.map((x, i) => `
-            <span style="color: ${getRankColor(i)}; font-weight: bold;">${i + 1}.</span>
-            <span style="color: ${getRankColor(i)};">${escapeHtml(x.name)}</span>
-            <span style="text-align: right;">${x.score}</span>
-            <span style="text-align: right;">${x.kills}</span>
-            <span style="text-align: right;">${x.damage}</span>
-        `).join('')}
+  for (let i = 0; i < 5; i++) {
+    const particle = scene.add.circle(
+      x + Phaser.Math.Between(-10, 10),
+      y + Phaser.Math.Between(-10, 10),
+      Phaser.Math.Between(2, 5),
+      0xFFA500,
+      0.7
+    );
+    particle.setDepth(9);
+    
+    scene.tweens.add({
+      targets: particle,
+      x: particle.x + Phaser.Math.Between(-20, 20),
+      y: particle.y + Phaser.Math.Between(-20, 20),
+      alpha: 0,
+      duration: Phaser.Math.Between(300, 600),
+      ease: 'Power2.easeOut',
+      onComplete: () => particle.destroy()
+    });
+  }
+}
+
+function createShatterEffect(scene, x, y) {
+  for (let i = 0; i < 8; i++) {
+    const shard = scene.add.rectangle(
+      x + Phaser.Math.Between(-5, 5),
+      y + Phaser.Math.Between(-5, 5),
+      Phaser.Math.Between(3, 8),
+      Phaser.Math.Between(3, 8),
+      0x8B4513,
+      0.8
+    );
+    shard.setDepth(8);
+    
+    const angle = (Math.PI * 2 / 8) * i;
+    const distance = Phaser.Math.Between(30, 60);
+    
+    scene.tweens.add({
+      targets: shard,
+      x: x + Math.cos(angle) * distance,
+      y: y + Math.sin(angle) * distance,
+      rotation: Phaser.Math.Between(0, Math.PI * 2),
+      alpha: 0,
+      duration: Phaser.Math.Between(400, 800),
+      ease: 'Power2.easeOut',
+      onComplete: () => shard.destroy()
+    });
+  }
+}
+
+function renderLeaderboard(leaderboard) {
+  const element = document.getElementById('leaderboard-content');
+  if (!element || !leaderboard) return;
+
+  element.innerHTML = `
+    <h3 style="margin:0 0 8px 0; text-align:center; color: #FFD700; font-size: 14px;">🏆 Лидеры</h3>
+    <div style="display: grid; grid-template-columns: 20px 1fr auto auto; gap: 3px; align-items: center; font-size: 11px;">
+      <span style="font-weight: bold; color: #ccc;">#</span>
+      <span style="font-weight: bold; color: #ccc;">Имя</span>
+      <span style="font-weight: bold; color: #ccc; text-align: right;">Очки</span>
+      <span style="font-weight: bold; color: #ccc; text-align: right;">Убийств</span>
+      ${leaderboard.map((player, index) => `
+        <span style="color: ${getRankColor(index)}; font-weight: bold;">${index + 1}.</span>
+        <span style="color: ${getRankColor(index)}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(player.name)}</span>
+        <span style="text-align: right; color: #fff;">${Math.round(player.score)}</span>
+        <span style="text-align: right; color: #fff;">${player.kills}</span>
+      `).join('')}
     </div>
   `;
-}
-
-function escapeHtml(s) {
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-}
-
-function getRankColor(i) {
-  if (i === 0) return '#FFD700';
-  if (i === 1) return '#C0C0C0';
-  if (i === 2) return '#CD7F32';
-  return '#FFFFFF';
-}
-
-function createBeerMugTexture(scene) {
-  const graphics = scene.add.graphics();
-  const w = 44, h = 44;
-
-  graphics.fillStyle(0xcce0ff, 0.4);
-  graphics.fillEllipse(w / 2, h / 2, 38, 40);
-
-  graphics.fillStyle(0xFFC700, 0.9);
-  graphics.fillEllipse(w / 2, h/2 + 5, 34, 32);
-
-  graphics.fillStyle(0xFFFFFF, 1);
-  graphics.fillEllipse(w / 2, h/2 - 12, 32, 12);
-  graphics.fillCircle(w / 2 - 10, h / 2 - 15, 5);
-  graphics.fillCircle(w / 2 + 8, h / 2 - 14, 6);
-
-  graphics.lineStyle(6, 0xcce0ff, 0.3);
-  graphics.beginPath();
-  graphics.arc(w - 5, h/2, 10, Math.PI / 2, -Math.PI / 2, true);
-  graphics.strokePath();
-
-  graphics.fillStyle(0xFFFFFF, 0.5);
-  graphics.fillEllipse(w/2 - 8, h/2 - 5, 4, 15);
-
-  graphics.generateTexture('beer', w, h);
-  graphics.destroy();
-}
-
-function createBeerProjectileTexture(scene) {
-  const graphics = scene.add.graphics();
-
-  graphics.fillStyle(0xFFD700);
-  graphics.fillEllipse(8, 10, 12, 8);
-  graphics.fillStyle(0xFF8C00);
-  graphics.fillEllipse(8, 8, 8, 6);
-  graphics.fillStyle(0xFFFFFF);
-  graphics.fillEllipse(8, 6, 4, 3);
-
-  graphics.generateTexture('beerProjectile', 16, 16);
-  graphics.destroy();
-}
-
-function createBushTexture(scene) {
-  const graphics = scene.add.graphics();
-
-  graphics.fillStyle(0x228B22, 0.8);
-  graphics.fillEllipse(32, 32, 60, 40);
-  graphics.fillEllipse(12, 25, 40, 30);
-  graphics.fillEllipse(52, 25, 40, 30);
-
-  graphics.lineStyle(2, 0x006400);
-  graphics.beginPath();
-  graphics.arc(32, 32, 30, 0, Math.PI * 2, true);
-  graphics.strokePath();
-
-  graphics.generateTexture('bushTexture', 64, 64);
-  graphics.destroy();
-}
-
-function createBushes(scene, bushesData) {
-  bushes = bushesData;
-  bushSprites = [];
-
-  bushes.forEach(bush => {
-    const bushSprite = scene.add.sprite(bush.x, bush.y, 'bushTexture');
-    bushSprite.setDepth(1);
-    scene.physics.add.existing(bushSprite, true);
-    if (bushSprite.body) {
-      bushSprite.body.setCircle(32);
-    }
-    bushSprites.push(bushSprite);
-  });
-}
-
-function createTreeTexture(scene) {
-  const graphics = scene.add.graphics();
-
-  graphics.fillStyle(0x8B4513);
-  graphics.fillRect(28, 40, 8, 24);
-
-  graphics.fillStyle(0x228B22);
-  graphics.fillEllipse(32, 24, 50, 40);
-  graphics.fillEllipse(20, 30, 30, 20);
-  graphics.fillEllipse(44, 30, 30, 20);
-
-  graphics.generateTexture('treeTexture', 64, 64);
-  graphics.destroy();
-}
-
-function createTrees(scene, treesData) {
-  trees = treesData;
-  treeSprites = [];
-
-  trees.forEach(tree => {
-    const treeSprite = scene.add.sprite(tree.x, tree.y, 'treeTexture');
-    treeSprite.setDepth(2);
-    treeSprites.push(treeSprite);
-  });
-}
-
-function createPowerUpTextures(scene) {
-  const graphics = scene.add.graphics();
-
-  graphics.fillStyle(0xFFFF00);
-  graphics.beginPath();
-  graphics.moveTo(10, 0); graphics.lineTo(4, 12); graphics.lineTo(8, 12);
-  graphics.lineTo(2, 24); graphics.lineTo(12, 10); graphics.lineTo(8, 10);
-  graphics.closePath();
-  graphics.fillPath();
-  graphics.generateTexture('powerup_speed', 16, 24);
-  graphics.clear();
-
-  graphics.fillStyle(0xFF0000);
-  graphics.fillRect(7, 0, 2, 18);
-  graphics.fillRect(4, 12, 8, 2);
-  graphics.generateTexture('powerup_damage', 16, 24);
-  graphics.destroy();
-}
-
-function createBottleTexture(scene) {
-  const graphics = scene.add.graphics();
-  graphics.fillStyle(0x3A1F04);
-  graphics.fillRoundedRect(4, 0, 8, 20, 2);
-  graphics.fillStyle(0xFFD700);
-  graphics.fillRect(2, 8, 12, 6);
-  graphics.generateTexture('bottle', 16, 24);
-  graphics.destroy();
-
-  const particleGraphics = scene.add.graphics();
-  particleGraphics.fillStyle(0x8B4513, 0.7);
-  particleGraphics.fillRect(0, 0, 4, 4);
-  particleGraphics.generateTexture('glassParticle', 4, 4);
-  particleGraphics.destroy();
-}
-
-function createPowerUp(scene, powerUpData) {
-  const texture = powerUpData.type === 'speed' ? 'powerup_speed' : 'powerup_damage';
-  const sprite = scene.add.sprite(powerUpData.x, powerUpData.y, texture);
-  sprite.setDepth(1);
-  powerUpSprites[powerUpData.id] = sprite;
-
-  scene.tweens.add({
-    targets: sprite,
-    scaleX: 1.2,
-    scaleY: 1.2,
-    duration: 500,
-    yoyo: true,
-    repeat: -1,
-    ease: 'Sine.easeInOut'
-  });
-}
-
-function createOrUpdateHillZone(scene, hillZone) {
-  if (!hillZoneSprite) {
-    hillZoneSprite = scene.add.circle(hillZone.x, hillZone.y, hillZone.radius);
-    hillZoneSprite.setStrokeStyle(4, 0xFFD700, 0.5);
-    hillZoneSprite.setDepth(-1);
-  } else {
-    hillZoneSprite.setPosition(hillZone.x, hillZone.y);
-  }
 }
 
 function updateKingOfTheHillUI(hillData) {
   if (!hillZoneSprite || !hillData) return;
 
   let color = 0xFFD700;
-  let alpha = 0.3;
+  let alpha = 0.2;
 
   if (hillData.contested) {
     color = 0xFF4500;
-    alpha = 0.5;
+    alpha = 0.4;
   } else if (hillData.controller) {
     color = 0x00FF00;
-    alpha = 0.4;
+    alpha = 0.3;
   }
 
   hillZoneSprite.setFillStyle(color, alpha);
@@ -775,11 +1393,11 @@ function updateKingOfTheHillUI(hillData) {
   if (uiElement) {
     const king = hillData.king ? players[hillData.king] : null;
     if (king && king.data) {
-      const time = Math.floor(king.data.hillTime);
+      const time = Math.floor(king.data.hillTime || 0);
       uiElement.innerHTML = `
-        <h3 style="margin:0; color: #FFD700;">King of the Hill</h3>
-        <div>👑 ${escapeHtml(king.data.name)}</div>
-        <div>⏱️ ${time}s</div>
+        <h3 style="margin:0; color: #FFD700; font-size: 14px;">👑 Король холма</h3>
+        <div style="font-size: 12px;">${escapeHtml(king.data.name)}</div>
+        <div style="font-size: 11px; color: #ccc;">⏱️ ${time}с</div>
       `;
       uiElement.style.display = 'block';
     } else {
@@ -788,340 +1406,13 @@ function updateKingOfTheHillUI(hillData) {
   }
 }
 
-function createWallTexture(scene) {
-  const graphics = scene.add.graphics();
-
-  graphics.fillStyle(0x8B4513);
-  graphics.fillRect(0, 0, 64, 64);
-
-  graphics.lineStyle(2, 0x654321);
-  for (let x = 0; x < 64; x += 16) {
-    graphics.moveTo(x, 0);
-    graphics.lineTo(x, 64);
-  }
-  for (let y = 0; y < 64; y += 8) {
-    graphics.moveTo(0, y);
-    graphics.lineTo(64, y);
-  }
-  graphics.strokePath();
-
-  graphics.generateTexture('wallTexture', 64, 64);
-  graphics.destroy();
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
 }
 
-function createWalls(scene, wallsData) {
-  walls = wallsData;
-  wallSprites = [];
-
-  walls.forEach(wall => {
-    const wallSprite = scene.add.rectangle(wall.x, wall.y, wall.width, wall.height, 0x8B4513);
-    wallSprite.setRotation(wall.angle * Math.PI / 180);
-    wallSprite.setDepth(1);
-    scene.physics.add.existing(wallSprite, true);
-
-    const texture = scene.add.tileSprite(wall.x, wall.y, wall.width, wall.height, 'wallTexture');
-    texture.setRotation(wall.angle * Math.PI / 180);
-    texture.setDepth(1);
-    texture.setAlpha(0.8);
-
-    wallSprites.push(wallSprite);
-  });
+function getRankColor(index) {
+  const colors = ['#FFD700', '#C0C0C0', '#CD7F32', '#FFFFFF'];
+  return colors[index] || '#FFFFFF';
 }
-
-function createBeerProjectile(scene, projectileData) {
-  const texture = projectileData.type === 'bottle' ? 'bottle' : 'beerProjectile';
-  try {
-    if (projectiles[projectileData.id]) {
-      projectiles[projectileData.id].destroy();
-    }
-
-    const projectile = scene.physics.add.sprite(projectileData.x, projectileData.y, 'beerProjectile');
-    projectile.setVelocity(projectileData.vx, projectileData.vy);
-    projectile.setCollideWorldBounds(true);
-    projectile.setBounce(0.5);
-    projectile.setDrag(50);
-    projectile.id = projectileData.id;
-
-    scene.tweens.add({
-      targets: projectile,
-      angle: 360,
-      duration: 1000,
-      repeat: -1,
-      ease: 'Linear'
-    });
-
-    scene.time.delayedCall(3000, () => {
-      if (projectiles[projectileData.id]) {
-        projectiles[projectileData.id].destroy();
-        delete projectiles[projectileData.id];
-      }
-    });
-
-    projectiles[projectileData.id] = projectile;
-    return projectile;
-  } catch (error) {
-    console.error("Error creating projectile:", error);
-    return null;
-  }
-}
-
-function update(time, delta) {
-  const allX = Object.values(players).map(p => p.sprite.x);
-  const allY = Object.values(players).map(p => p.sprite.y);
-  const minX = Math.min(...allX);
-  const maxX = Math.max(...allX);
-  const minY = Math.min(...allY);
-  const maxY = Math.max(...allY);
-  const centerX = (minX + maxX) / 2;
-  const centerY = (minY + maxY) / 2;
-  scene.cameras.main.centerOn(centerX, centerY);
-  if (!selfId) return;
-
-  let input;
-
-  if (isMobileDevice) {
-    input = {
-      seq: ++seq,
-      left: mobileInput.left,
-      right: mobileInput.right,
-      up: mobileInput.up,
-      down: mobileInput.down,
-      action: null
-    };
-  } else {
-    input = {
-      seq: ++seq,
-      left: cursors.left.isDown,
-      right: cursors.right.isDown,
-      up: cursors.up.isDown,
-      down: cursors.down.isDown,
-      action: swingKey.isDown ? 'swing' : null
-    };
-
-    const canShoot = time - lastShootTime > SHOOT_COOLDOWN;
-    if (shootKey.isDown && canShoot) {
-      const me = players[selfId];
-      if (me && me.sprite) {
-        let shootVx = 0, shootVy = 0;
-        if (input.left) shootVx -= 1;
-        if (input.right) shootVx += 1;
-        if (input.up) shootVy -= 1;
-        if (input.down) shootVy += 1;
-
-        if (shootVx === 0 && shootVy === 0) {
-          shootVx = me.lastDirection.x;
-          shootVy = me.lastDirection.y;
-        }
-
-        if (shootVx === 0 && shootVy === 0) {
-          shootVx = 1;
-        }
-
-        const len = Math.hypot(shootVx, shootVy);
-        if (len > 0) {
-          shootVx = (shootVx / len) * 300;
-          shootVy = (shootVy / len) * 300;
-        }
-
-        lastShootTime = time;
-        const localId = `proj_${selfId}_${Date.now()}`;
-
-        const projectileData = {
-          id: localId,
-          x: me.sprite.x,
-          y: me.sprite.y,
-          vx: shootVx,
-          vy: shootVy
-        };
-
-        createBeerProjectile(scene, projectileData);
-        scene.sound.play('shoot');
-
-        socket.emit('shoot', {
-          ...projectileData,
-          localId: localId
-        });
-      }
-    }
-  }
-
-  const speed = 200;
-  let vx = 0, vy = 0;
-  if (input.left) vx -= 1;
-  if (input.right) vx += 1;
-  if (input.up) vy -= 1;
-  if (input.down) vy += 1;
-
-  const len = Math.hypot(vx, vy);
-  if (len > 0) {
-    vx = vx / len * speed;
-    vy = vy / len * speed;
-  } else {
-    vx = 0;
-    vy = 0;
-  }
-
-  const me = players[selfId];
-  if (me && me.sprite) {
-    if (vx !== 0 || vy !== 0) {
-      me.lastDirection.x = vx / speed;
-      me.lastDirection.y = vy / speed;
-    }
-
-    me.sprite.setVelocity(vx, vy);
-
-    me.nameText.x = me.sprite.x - 24;
-    me.nameText.y = me.sprite.y - 44;
-    me.hpBarBg.x = me.sprite.x - 25;
-    me.hpBarBg.y = me.sprite.y - 30;
-    me.hpBar.x = me.sprite.x - 25;
-    me.hpBar.y = me.sprite.y - 30;
-
-    if (vx !== 0 || vy !== 0) {
-      const angle = Math.atan2(vy, vx) * (180 / Math.PI);
-      scene.tweens.add({
-        targets: me.sprite,
-        angle: angle * 0.3,
-        duration: 200,
-        ease: 'Power2'
-      });
-    }
-  }
-
-  if (time - lastInputTime >= 1000 / INPUT_SEND_RATE) {
-    if (input.action) {
-      const range = 100;
-      let targetId = null;
-      let best = 1e9;
-
-      if (me && me.sprite) {
-        Object.keys(players).forEach(id => {
-          if (id === selfId) return;
-          const p = players[id];
-          if (p && p.sprite) {
-            const dx = p.sprite.x - me.sprite.x;
-            const dy = p.sprite.y - me.sprite.y;
-            const d = Math.hypot(dx, dy);
-            if (d < range && d < best) {
-              best = d;
-              targetId = id;
-            }
-          }
-        });
-      }
-
-      if (targetId) {
-        socket.emit('input', {
-          seq,
-          left: input.left,
-          right: input.right,
-          up: input.up,
-          down: input.down,
-          action: 'swing',
-          targetId,
-          ax: me ? me.sprite.x : 0,
-          ay: me ? me.sprite.y : 0
-        });
-      } else {
-        socket.emit('input', { seq, ...input });
-      }
-    } else {
-      socket.emit('input', { seq, ...input });
-    }
-    lastInputTime = time;
-  }
-
-  Object.keys(players).forEach(id => {
-    const p = players[id];
-    if (!p || !p.data || !p.sprite) return;
-
-    if (id !== selfId) {
-      const dx = p.targetX - p.sprite.x;
-      const dy = p.targetY - p.sprite.y;
-      const distance = Math.hypot(dx, dy);
-
-      if (distance > 5) {
-        p.sprite.x += dx * 0.15;
-        p.sprite.y += dy * 0.15;
-      } else {
-        p.sprite.x = p.targetX;
-        p.sprite.y = p.targetY;
-      }
-    }
-
-    p.nameText.x = p.sprite.x - 24;
-    p.nameText.y = p.sprite.y - 44;
-    p.hpBarBg.x = p.sprite.x - 25;
-    p.hpBarBg.y = p.sprite.y - 30;
-    p.hpBar.x = p.sprite.x - 25;
-    p.hpBar.y = p.sprite.y - 30;
-
-    const hpPercentage = Math.max(0, p.data.hp / 100);
-    const hpWidth = hpPercentage * 50;
-    p.hpBar.width = hpWidth;
-
-    if (p.data.hp > 60) p.hpBar.fillColor = 0x00ff00;
-    else if (p.data.hp > 30) p.hpBar.fillColor = 0xffa500;
-    else p.hpBar.fillColor = 0xff0000;
-
-    let inBush = false;
-    for (const bush of bushSprites) {
-      if (p.sprite.body && Phaser.Geom.Intersects.RectangleToRectangle(p.sprite.getBounds(), bush.getBounds())) {
-        inBush = true;
-        break;
-      }
-    }
-
-    if (!p.data.alive) {
-      p.sprite.setAlpha(0.4);
-      p.nameText.setAlpha(0);
-      p.hpBar.setAlpha(0);
-      p.hpBarBg.setAlpha(0);
-    } else if (inBush) {
-      if (id !== selfId) {
-        p.sprite.setAlpha(0.3);
-        p.nameText.setAlpha(0);
-        p.hpBar.setAlpha(0);
-        p.hpBarBg.setAlpha(0);
-      } else {
-        p.sprite.setAlpha(0.7);
-        p.nameText.setAlpha(1);
-        p.hpBar.setAlpha(1);
-        p.hpBarBg.setAlpha(1);
-      }
-    } else {
-      p.sprite.setAlpha(1);
-      p.nameText.setAlpha(1);
-      p.hpBar.setAlpha(1);
-      p.hpBarBg.setAlpha(1);
-    }
-
-    if (p.data.activePowerUp) {
-      const color = p.data.activePowerUp === 'speed' ? 0xFFFF00 : 0xFF0000;
-      const now = Date.now();
-      const a = 0.5 + Math.sin(now / 150) * 0.5;
-      if (!p.powerUpAura) {
-        p.powerUpAura = scene.add.ellipse(p.sprite.x, p.sprite.y, 40, 40, color, 0.3);
-        p.powerUpAura.setDepth(p.sprite.depth - 1);
-      }
-      p.powerUpAura.x = p.sprite.x;
-      p.powerUpAura.y = p.sprite.y;
-      p.powerUpAura.setAlpha(a);
-      p.powerUpAura.setStrokeStyle(2, color, 0.8);
-    } else if (p.powerUpAura) {
-      p.powerUpAura.destroy();
-      p.powerUpAura = null;
-    }
-  });
-}
-
-window.addEventListener('load', () => {
-  console.log("Window loaded, creating Phaser game...");
-  game = new Phaser.Game(config);
-});
-
-window.addEventListener('resize', () => {
-  if (game) {
-    game.scale.resize(window.innerWidth, window.innerHeight);
-  }
-});

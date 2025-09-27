@@ -1,227 +1,539 @@
-<!doctype html>
-<html>
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>BeerMugGame</title>
-    <style>
-      body { 
-        margin:0; 
-        background:#1b1b2f; 
-        color:#fff; 
-        font-family: Arial, sans-serif;
-        overflow: hidden;
-        touch-action: manipulation;
-        -webkit-touch-callout: none;
-        -webkit-user-select: none;
-        -khtml-user-select: none;
-        -moz-user-select: none;
-        -ms-user-select: none;
-        user-select: none;
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>BeerMugGame - Онлайн битва пивных кружек</title>
+  <meta name="description" content="Многопользовательская онлайн игра с пивными кружками">
+  
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body { 
+      margin: 0; 
+      background: #1a1a2e; 
+      color: #fff; 
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      overflow: hidden;
+      touch-action: manipulation;
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      -khtml-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      user-select: none;
+      position: fixed;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    #game-container { 
+      width: 100vw; 
+      height: 100vh; 
+      background: #16213e; 
+      position: relative; 
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Форма входа */
+    #join { 
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: linear-gradient(145deg, rgba(0, 0, 0, 0.9), rgba(40, 40, 60, 0.9));
+      padding: 30px;
+      border-radius: 15px;
+      z-index: 1000;
+      width: 90%;
+      max-width: 350px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+      border: 2px solid rgba(255, 215, 0, 0.3);
+    }
+
+    #join h2 {
+      text-align: center;
+      margin-bottom: 20px;
+      color: #FFD700;
+      font-size: 24px;
+      text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+    }
+
+    #join input, #join button {
+      padding: 15px;
+      margin: 10px 0;
+      border: none;
+      border-radius: 8px;
+      width: 100%;
+      font-size: 16px;
+      transition: all 0.3s ease;
+    }
+
+    #join input {
+      background: rgba(255, 255, 255, 0.9);
+      color: #333;
+      border: 2px solid transparent;
+    }
+
+    #join input:focus {
+      outline: none;
+      border-color: #FFD700;
+      box-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
+    }
+
+    #join button {
+      background: linear-gradient(145deg, #4CAF50, #45a049);
+      color: white;
+      cursor: pointer;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      border: 2px solid transparent;
+    }
+
+    #join button:hover {
+      background: linear-gradient(145deg, #45a049, #4CAF50);
+      border-color: #FFD700;
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+    }
+
+    #join button:active {
+      transform: translateY(0);
+    }
+
+    /* Таблица лидеров */
+    #leaderboard {
+      position: absolute; 
+      right: 15px; 
+      top: 15px; 
+      width: 140px; 
+      background: linear-gradient(145deg, rgba(0, 0, 0, 0.8), rgba(20, 20, 40, 0.8));
+      padding: 15px;
+      border-radius: 10px;
+      color: #fff;
+      font-family: 'Segoe UI', sans-serif;
+      max-height: 75vh;
+      overflow-y: auto;
+      font-size: 13px;
+      z-index: 100;
+      border: 1px solid rgba(255, 215, 0, 0.2);
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+      backdrop-filter: blur(5px);
+    }
+
+    #leaderboard::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    #leaderboard::-webkit-scrollbar-track {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 2px;
+    }
+
+    #leaderboard::-webkit-scrollbar-thumb {
+      background: rgba(255, 215, 0, 0.5);
+      border-radius: 2px;
+    }
+
+    /* King of the Hill UI */
+    #king-of-the-hill {
+      position: absolute;
+      top: 15px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: linear-gradient(145deg, rgba(255, 215, 0, 0.9), rgba(255, 140, 0, 0.9));
+      color: #000;
+      padding: 12px 20px;
+      border-radius: 12px;
+      font-family: 'Segoe UI', sans-serif;
+      text-align: center;
+      display: none;
+      font-weight: bold;
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+      border: 2px solid rgba(255, 215, 0, 0.5);
+    }
+
+    /* Мобильные элементы управления */
+    #mobile-controls {
+      position: absolute;
+      bottom: 20px;
+      left: 0;
+      right: 0;
+      display: none;
+      justify-content: space-between;
+      align-items: flex-end;
+      padding: 0 20px;
+      z-index: 200;
+      pointer-events: none;
+    }
+
+    #joystick-area {
+      width: 120px;
+      height: 120px;
+      position: relative;
+      background: rgba(255, 255, 255, 0.1);
+      border: 3px solid rgba(255, 255, 255, 0.3);
+      border-radius: 50%;
+      touch-action: none;
+      pointer-events: all;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #joystick {
+      width: 50px;
+      height: 50px;
+      background: linear-gradient(145deg, rgba(255, 255, 255, 0.8), rgba(200, 200, 200, 0.8));
+      border: 2px solid rgba(255, 215, 0, 0.7);
+      border-radius: 50%;
+      position: absolute;
+      touch-action: none;
+      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
+    }
+
+    #action-buttons {
+      display: flex;
+      gap: 15px;
+      pointer-events: none;
+    }
+
+    .action-btn {
+      pointer-events: all;
+      width: 70px;
+      height: 70px;
+      background: linear-gradient(145deg, rgba(255, 215, 0, 0.9), rgba(255, 140, 0, 0.9));
+      border: 3px solid rgba(255, 215, 0, 0.7);
+      border-radius: 50%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 24px;
+      color: #000;
+      touch-action: none;
+      user-select: none;
+      font-weight: bold;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      transition: all 0.1s ease;
+    }
+
+    .action-btn:active {
+      transform: scale(0.95);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+    }
+
+    /* Адаптивный дизайн */
+    @media (max-width: 768px) {
+      #leaderboard {
+        right: 10px;
+        top: 10px;
+        width: 120px;
+        padding: 10px;
+        font-size: 11px;
+        max-height: 60vh;
       }
-      #game-container { 
-        width: 100vw; 
-        height: 100vh; 
-        margin: 0 auto; 
-        background: #2a2a2a; 
-        position: relative; 
-        overflow: hidden;
+      
+      #king-of-the-hill {
+        font-size: 12px;
+        padding: 8px 12px;
+        top: 10px;
+      }   
+      
+      #mobile-controls {
+        padding: 0 15px;
+        bottom: 15px;
       }
-      #ui { 
-        text-align:center; 
-        margin-top:6px; 
+      
+      #joystick-area {
+        width: 100px;
+        height: 100px;
       }
-      #join { 
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        background: rgba(0, 0, 0, 0.8);
-        padding: 20px;
-        border-radius: 10px;
-        z-index: 1000;
-        width: 80%;
-        max-width: 300px;
+      
+      #joystick {
+        width: 40px;
+        height: 40px;
       }
+      
+      .action-btn {
+        width: 60px;
+        height: 60px;
+        font-size: 20px;
+      }
+
+      #join {
+        width: 95%;
+        padding: 25px;
+      }
+
+      #join h2 {
+        font-size: 20px;
+      }
+
       #join input, #join button {
         padding: 12px;
-        margin: 8px 0;
-        border: none;
-        border-radius: 5px;
-        width: 100%;
-        box-sizing: border-box;
-        font-size: 16px;
+        font-size: 14px;
       }
-      #join input {
-        background: white;
-        color: black;
-      }
-      #join button {
-        background: #4CAF50;
-        color: white;
-        cursor: pointer;
-      }
-      #join button:hover {
-        background: #45a049;
-      }
+    }
+
+    @media (max-width: 480px) {
       #leaderboard {
-        position: absolute; 
-        right: 10px; 
-        top: 10px; 
-        width: 120px; 
-        background: rgba(0, 0, 0, 0.7);
-        padding: 10px;
-        border-radius: 5px;
-        color: #fff;
-        font-family: Arial;
-        max-height: 80vh;
-        overflow-y: auto;
-        font-size: 12px;
-        z-index: 100;
+        width: 100px;
+        font-size: 10px;
+        padding: 8px;
+      }      
+      
+      #joystick-area {
+        width: 85px;
+        height: 85px;
+      }      
+      
+      #joystick {
+        width: 35px;
+        height: 35px;
+      } 
+      
+      .action-btn {
+        width: 55px;
+        height: 55px;
+        font-size: 18px;
       }
 
       #king-of-the-hill {
-        position: absolute;
-        top: 10px;
-        left: 50%;
-        transform: translateX(-50%);
-        background: rgba(0,0,0,0.6);
-        color: white;
-        padding: 8px 15px;
-        border-radius: 10px;
-        font-family: sans-serif;
-        text-align: center;
-        display: none;
-      }
-      #mobile-controls {
-        position: absolute;
-        bottom: 20px;
-        left: 0;
-        right: 0;
-        display: flex;
-        justify-content: space-between;
-        padding: 0 20px;
-        z-index: 100;
-      }
-      #joystick-area {
-        width: 120px;
-        height: 120px;
-        position: relative;
-        touch-action: none;
-      }
-      #joystick {
-        width: 60px;
-        height: 60px;
-        background: rgba(255, 255, 255, 0.5);
-        border-radius: 50%;
-        position: absolute;
-        left: 30px;
-        top: 30px;
-        touch-action: none;
-      }
-      #action-buttons {
-        position: absolute;
-        bottom: 10px;
-        right: 10px;
-        display: flex;
-        gap: 20px;
-        pointer-events: none;
+        font-size: 11px;
+        padding: 6px 10px;
       }
 
-      .action-btn {
-        pointer-events: all;
-        width: 70px;
-        height: 70px;
-        background: rgba(255, 215, 0, 0.7);
-        border-radius: 50%;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        font-size: 20px;
-        color: white;
-        touch-action: none;
-        user-select: none;
+      #join {
+        padding: 20px;
       }
-      @media (max-width: 768px) {
-        #leaderboard {
-          right: 5px;
-          top: 5px;
-          width: 100px;
-          padding: 5px;
-          font-size: 10px;
-          max-height: 60vh;
-        }
-        #king-of-the-hill {
-          font-size: 12px;
-          padding: 5px 10px;
-        }   
-        #mobile-controls {
-          padding: 0 10px;
-          bottom: 10px;
-        }
-        #joystick-area {
-          width: 100px;
-          height: 100px;
-        }
-        #joystick {
-          width: 50px;
-          height: 50px;
-          left: 25px;
-          top: 25px;
-        }
-        .action-btn {
-          width: 60px;
-          height: 60px;
-          font-size: 16px;
-        }
+
+      #join h2 {
+        font-size: 18px;
+        margin-bottom: 15px;
       }
-      @media (max-width: 480px) {
-        #leaderboard {
-          width: 90px;
-          font-size: 9px;
-        }      
-        #joystick-area {
-          width: 80px;
-          height: 80px;
-        }      
-        #joystick {
-          width: 40px;
-          height: 40px;
-          left: 20px;
-          top: 20px;
-        } 
-        .action-btn {
-          width: 50px;
-          height: 50px;
-          font-size: 14px;
-        }
+
+      #join input, #join button {
+        padding: 10px;
+        font-size: 13px;
+        margin: 8px 0;
       }
-    </style>
-  </head>
-  <body>
-    <div id="game-root">
-      <div id="join">
-        <input id="name" placeholder="Введите имя" />
-        <button id="joinBtn">Войти в игру</button>
+    }
+
+    /* Анимации и эффекты */
+    @keyframes pulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+      100% { transform: scale(1); }
+    }
+
+    .pulse {
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .fade-in {
+      animation: fadeIn 0.5s ease-out;
+    }
+
+    /* Улучшенная прокрутка */
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 3px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: rgba(255, 215, 0, 0.5);
+      border-radius: 3px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 215, 0, 0.7);
+    }
+
+    /* Прелоадер */
+    .loading {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: #FFD700;
+      font-size: 18px;
+      z-index: 999;
+    }
+
+    .loading::after {
+      content: '';
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 2px solid rgba(255, 215, 0, 0.3);
+      border-radius: 50%;
+      border-top-color: #FFD700;
+      animation: spin 1s ease-in-out infinite;
+      margin-left: 10px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Скрытие элементов по умолчанию */
+    .hidden {
+      display: none !important;
+    }
+
+    /* Улучшение производительности */
+    canvas {
+      image-rendering: -moz-crisp-edges;
+      image-rendering: -webkit-crisp-edges;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="game-root">
+    <!-- Форма входа в игру -->
+    <div id="join" class="fade-in">
+      <h2>🍺 BeerMugGame</h2>
+      <input 
+        id="name" 
+        type="text" 
+        placeholder="Введите ваше имя" 
+        maxlength="20"
+        autocomplete="off"
+        spellcheck="false"
+      />
+      <button id="joinBtn" class="pulse">Войти в игру</button>
+      <div style="text-align: center; margin-top: 10px; font-size: 12px; color: #ccc;">
+        Стрелки - движение, Пробел - стрельба/удар
       </div>
-      <div id="game-container"></div>
-      <div id="leaderboard">
-        <div id="leaderboard-content"></div>
-      </div>
-      <div id="king-of-the-hill"></div>
-      <div id="mobile-controls" style="display: none;">
-        <div id="joystick-area">
-          <div id="joystick"></div>
-          <div id="action-buttons">
-            <div id="shoot-btn" class="action-btn">🔥</div>
-            <div id="swing-btn" class="action-btn">👊</div>
-          </div>
+    </div>
+
+    <!-- Прелоадер -->
+    <div id="loading" class="loading hidden">
+      Подключение к серверу...
+    </div>
+
+    <!-- Игровой контейнер -->
+    <div id="game-container"></div>
+
+    <!-- Таблица лидеров -->
+    <div id="leaderboard">
+      <div id="leaderboard-content">
+        <h3 style="margin:0 0 8px 0; text-align:center; color: #FFD700; font-size: 14px;">🏆 Лидеры</h3>
+        <div style="text-align: center; color: #ccc; font-size: 11px;">
+          Ожидание игроков...
         </div>
       </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
-    <script src="/socket.io/socket.io.js"></script>
-    <script src="game.js?v=9"></script>
-  </body>
+    <!-- King of the Hill UI -->
+    <div id="king-of-the-hill"></div>
+
+    <!-- Мобильные элементы управления -->
+    <div id="mobile-controls">
+      <div id="joystick-area">
+        <div id="joystick"></div>
+      </div>
+      <div id="action-buttons">
+        <div id="shoot-btn" class="action-btn" title="Стрельба пивом">🔥</div>
+        <div id="swing-btn" class="action-btn" title="Удар кружкой">👊</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Скрипты -->
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.70.0/dist/phaser.min.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="game.js?v=10"></script>
+
+  <script>
+    // Дополнительная оптимизация производительности
+    document.addEventListener('DOMContentLoaded', function() {
+      // Отключаем контекстное меню на мобильных устройствах
+      document.addEventListener('contextmenu', function(e) {
+        e.preventDefault();
+      });
+
+      // Предотвращаем масштабирование на мобильных
+      document.addEventListener('gesturestart', function(e) {
+        e.preventDefault();
+      });
+
+      // Оптимизация для iOS Safari
+      if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
+        document.addEventListener('touchmove', function(e) {
+          if (e.scale !== 1) {
+            e.preventDefault();
+          }
+        }, { passive: false });
+      }
+
+      // Показываем/скрываем прелоадер
+      const loading = document.getElementById('loading');
+      const joinForm = document.getElementById('join');
+      
+      function showLoading() {
+        loading.classList.remove('hidden');
+        joinForm.style.display = 'none';
+      }
+      
+      function hideLoading() {
+        loading.classList.add('hidden');
+        joinForm.style.display = 'block';
+      }
+
+      // Фокус на поле ввода имени
+      const nameInput = document.getElementById('name');
+      if (nameInput && !(/iPhone|iPad|iPod|Android/i.test(navigator.userAgent))) {
+        setTimeout(() => nameInput.focus(), 100);
+      }
+    });
+
+    // Обработка ошибок загрузки ресурсов
+    window.addEventListener('error', function(e) {
+      console.warn('Resource loading error:', e.filename, e.message);
+    });
+
+    // Отслеживание производительности
+    let fpsCounter = 0;
+    let lastTime = performance.now();
+    
+    function trackFPS() {
+      const currentTime = performance.now();
+      fpsCounter++;
+      
+      if (currentTime - lastTime >= 1000) {
+        console.log(`FPS: ${fpsCounter}`);
+        fpsCounter = 0;
+        lastTime = currentTime;
+      }
+      
+      requestAnimationFrame(trackFPS);
+    }
+    
+    // Запускаем счетчик FPS только в режиме разработки
+    if (location.hostname === 'localhost') {
+      requestAnimationFrame(trackFPS);
+    }
+  </script>
+</body>
 </html>
