@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>BeerMugGame</title>
     <style>
       body { 
@@ -91,7 +91,7 @@
         border-radius: 10px;
         font-family: sans-serif;
         text-align: center;
-        display: none; /* Initially hidden */
+        display: none;
       }
       #mobile-controls {
         position: absolute;
@@ -120,10 +120,16 @@
         touch-action: none;
       }
       #action-buttons {
+        position: absolute;
+        bottom: 10px;
+        right: 10px;
         display: flex;
         gap: 20px;
+        pointer-events: none;
       }
+
       .action-btn {
+        pointer-events: all;
         width: 70px;
         height: 70px;
         background: rgba(255, 215, 0, 0.7);
@@ -134,7 +140,7 @@
         font-size: 20px;
         color: white;
         touch-action: none;
-        cursor: pointer;
+        user-select: none;
       }
       @media (max-width: 768px) {
         #leaderboard {
@@ -206,18 +212,16 @@
       <div id="mobile-controls" style="display: none;">
         <div id="joystick-area">
           <div id="joystick"></div>
-        </div>
-        <div id="action-buttons">
-          <div id="shoot-btn" class="action-btn">🔥</div>
-          <div id="swing-btn" class="action-btn">👊</div>
+          <div id="action-buttons">
+            <div id="shoot-btn" class="action-btn">🔥</div>
+            <div id="swing-btn" class="action-btn">👊</div>
+          </div>
         </div>
       </div>
     </div>
 
-    <!-- Phaser 3 CDN -->
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
-    <!-- Socket.IO client -->
     <script src="/socket.io/socket.io.js"></script>
-<script src="game.js?v=9"></script>
+    <script src="game.js?v=9"></script>
   </body>
 </html>
